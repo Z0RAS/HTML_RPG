@@ -87,9 +87,66 @@ Create a `.env` file in the server directory (optional):
 
 ```
 JWT_SECRET=your-secret-key-here
+PORT=3000
 ```
 
 If not set, a default key will be used (change in production).
+
+## Deployment to Render.com
+
+### Quick Deploy
+
+1. **Push to GitHub** (already done!)
+
+2. **Create Render Account**
+   - Go to https://render.com and sign up
+   - Connect your GitHub account
+
+3. **Create New Web Service**
+   - Click "New +" → "Web Service"
+   - Connect your `HTML_RPG` repository
+   - Configure:
+     - **Name**: `html-rpg` (or your choice)
+     - **Region**: Choose closest to you
+     - **Branch**: `main`
+     - **Root Directory**: leave empty
+     - **Runtime**: `Node`
+     - **Build Command**: `cd server && npm install`
+     - **Start Command**: `cd server && node server.js`
+     - **Instance Type**: Free
+
+4. **Add Environment Variable**
+   - In the "Environment" section, add:
+     - Key: `JWT_SECRET`
+     - Value: Click "Generate" for a secure random value
+
+5. **Deploy**
+   - Click "Create Web Service"
+   - Wait 2-3 minutes for deployment
+   - Your app will be live at: `https://html-rpg.onrender.com` (or your chosen name)
+
+### Alternative: Using render.yaml
+
+This repo includes a `render.yaml` file for automatic configuration:
+
+1. Go to Render Dashboard
+2. Click "New +" → "Blueprint"
+3. Select your `HTML_RPG` repository
+4. Render will automatically read `render.yaml` and configure everything
+
+### Important Notes
+
+- The free tier spins down after 15 minutes of inactivity
+- First request after spin-down may take 30-60 seconds
+- Database is SQLite (stored in the container, will reset on redeploy)
+- For production, consider upgrading to paid tier with persistent storage
+
+### Troubleshooting
+
+If deployment fails:
+- Check logs in Render dashboard
+- Ensure `server/package.json` has all dependencies
+- Verify Node version compatibility (v14+)
 
 ## License
 

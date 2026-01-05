@@ -1,4 +1,7 @@
-const API = "http://localhost:3000";
+// Auto-detect API URL based on environment
+const API = window.location.hostname === 'localhost' 
+    ? "http://localhost:3000" 
+    : window.location.origin;
 
 // Token management
 let authToken = null;

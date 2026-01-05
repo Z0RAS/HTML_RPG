@@ -532,5 +532,36 @@ app.post("/enemy/kill", authenticateToken, async (req, res) => {
     })();
 });
 
+// ===== ADMIN ENDPOINTS (for debugging) =====
+app.get("/admin/stats", async (req, res) => {
+    try {
+        const users = await dbAllAsync("SELECT id, username, created_at FROM users");
+        const characters = await dbAllAsync("SELECT id, user_id, name, class, level FROM characters");
+        const items = await dbAllAsync("SELECT COUNT(*) as count FROM items");
+        
+        res.json({
+            totalUsers: users.length,
+            totalCharacters: characters.length,
+            totalItems: items[0].count,
+            users,
+            characters
+        });
+    } catch (e) {
+        res.status(500).json({ error: String(e) });
+    }
+});
+
+app.get("/admin/database", async (req, res) => {
+    try {
+        const users = await dbAllAsync("SELECT * FROM users");
+        const characters = await dbAllAsync("SELECT * FROM characters");
+        const items = await dbAllAsync("SELECT * FROM items LIMIT 20");
+        
+        res.json({ users, characters, items });
+    } catch (e) {
+        res.status(500).json({ error: String(e) });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

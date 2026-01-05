@@ -154,7 +154,7 @@ export async function doRegister() {
     const res = await register(loginUI.username, loginUI.password);
 
     if (!res.success) {
-        loginUI.message = "Vartotojas jau egzistuoja";
+        loginUI.message = res.error || "Registracija nepavyko";
         return;
     }
 

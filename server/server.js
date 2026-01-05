@@ -98,8 +98,13 @@ async function verifyCharacterOwnership(charId, userId) {
 // Input validation helper
 function validateInput(fields) {
     for (const [key, value] of Object.entries(fields)) {
-        if (value === undefined || value === null || value === '') {
+        if (value === undefined || value === null) {
             return { valid: false, error: `${key} is required` };
+        }
+        // Allow empty strings but trim them
+        const trimmed = String(value).trim();
+        if (trimmed === '') {
+            return { valid: false, error: `${key} cannot be empty` };
         }
     }
     return { valid: true };
@@ -109,14 +114,18 @@ function validateInput(fields) {
 // REGISTER
 app.post("/register", async (req, res) => {
     const { username, password } = req.body;
+    
+    console.log("Register attempt:", { username, password: password ? "***" : "empty" });
 
     // Validate input
     const validation = validateInput({ username, password });
     if (!validation.valid) {
+        console.log("Validation failed:", validation.error);
         return res.status(400).json({ success: false, error: validation.error });
     }
 
     if (username.length < 3 || password.length < 6) {
+        console.log("Length check failed:", { usernameLen: username.length, passwordLen: password.length });
         return res.status(400).json({ success: false, error: "Username must be 3+ chars, password 6+ chars" });
     }
 

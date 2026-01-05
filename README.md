@@ -94,7 +94,7 @@ If not set, a default key will be used (change in production).
 
 ## Deployment to Render.com
 
-### Quick Deploy
+### Deploy Steps (Free Tier)
 
 1. **Push to GitHub** (already done!)
 
@@ -124,15 +124,6 @@ If not set, a default key will be used (change in production).
    - Click "Create Web Service"
    - Wait 2-3 minutes for deployment
    - Your app will be live at: `https://html-rpg.onrender.com` (or your chosen name)
-
-### Alternative: Using render.yaml
-
-This repo includes a `render.yaml` file for automatic configuration:
-
-1. Go to Render Dashboard
-2. Click "New +" → "Blueprint"
-3. Select your `HTML_RPG` repository
-4. Render will automatically read `render.yaml` and configure everything
 
 ### Important Notes
 

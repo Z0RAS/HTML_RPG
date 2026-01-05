@@ -2,7 +2,7 @@ export let canvas, ctx;
 
 // Game sprites for 2D Pixel RPG Dungeon Crawler
 export const bgImg = new Image();
-bgImg.src = "./src/assets/background.png";
+bgImg.src = "./src/assets/Background.png";
 bgImg.alt = "Dungeon Crawler game background - pixel RPG environment";
 
 export const batSprite = new Image();
@@ -174,7 +174,7 @@ export function drawText(text, x, y, size = 14, color = "#fff") {
 }
 
 export function drawBackground() {
-    if (bgImg.complete) {
+    if (bgImg.complete && bgImg.naturalWidth > 0) {
         ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
     } else {
         // Fallback to solid color if image not loaded

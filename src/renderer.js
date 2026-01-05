@@ -16,6 +16,17 @@ export function setupRenderer() {
     canvas = document.getElementById("game");
     ctx = canvas.getContext("2d");
 
+    // Prevent canvas from being draggable (fixes inventory drag ghost image issue)
+    canvas.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        return false;
+    });
+    
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        return false;
+    });
+
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;

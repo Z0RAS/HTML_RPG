@@ -50,7 +50,7 @@ portalSprite.src = "./src/assets/Portal.png";
 portalSprite.alt = "Portal sprite - dungeon exit";
 
 export const backgroundAnimated = new Image();
-backgroundAnimated.src = "./src/assets/Background.png";
+backgroundAnimated.src = "./src/assets/background.png";
 backgroundAnimated.alt = "Animated background - 2D RPG login screen";
 
 export const titleImage = new Image();

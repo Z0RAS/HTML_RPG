@@ -88,6 +88,14 @@ export async function createCharacter(name, className) {
     return await res.json();
 }
 
+export async function deleteCharacter(charId) {
+    const res = await fetch(`${API}/character/${charId}`, {
+        method: "DELETE",
+        headers: getHeaders()
+    });
+    return await res.json();
+}
+
 // ✅ INVENTORY API
 export async function addInventoryItem(charId, itemId, quantity = 1) {
     const res = await fetch(`${API}/inventory/add`, {

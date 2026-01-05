@@ -24,5 +24,9 @@ export function calculateFinalStats(base, equipmentItems) {
     finalStats.manaRegen = finalStats.mana_regen;
     finalStats.skillPoints = finalStats.skill_points;
 
+    // Persisted unlocks
+    finalStats.mergedClass = finalStats.merged_class || null;
+    finalStats.ultimateSkill = finalStats.ultimate_skill || null;
+
     return finalStats;
 }

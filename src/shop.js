@@ -1,9 +1,10 @@
-import { drawPixelButton, drawPixelText, drawRect, drawText } from "./renderer.js";
+import { drawPixelButton, drawPixelText, drawRect, drawText, getSpriteInfo, getSpriteCoordsFromIndex } from "./renderer.js";
 import { canvas, ctx } from "./renderer.js";
 import { playerStats, getPlayerStats } from "./stats.js";
 import { inventory } from "./inventory.js";
 import { getInventory, addInventoryItem, getShopItems } from "./api.js";
 import { keys } from "./input.js";
+import { playSound } from "./audio.js";
 
 export let shop = {
     open: false,
@@ -66,10 +67,16 @@ export function updateShop(canvas) {
     const sellTabY = shopY - 30;
 
     if (mx >= buyTabX && mx <= buyTabX + 60 && my >= buyTabY && my <= buyTabY + 25) {
-        if (window.mouseJustPressed) shop.tab = "buy";
+        if (window.mouseJustPressed) {
+            playSound("button");
+            shop.tab = "buy";
+        }
     }
     if (mx >= sellTabX && mx <= sellTabX + 60 && my >= sellTabY && my <= sellTabY + 25) {
-        if (window.mouseJustPressed) shop.tab = "sell";
+        if (window.mouseJustPressed) {
+            playSound("button");
+            shop.tab = "sell";
+        }
     }
 
     if (shop.tab === "buy") {
@@ -104,7 +111,7 @@ export function updateShop(canvas) {
     }
 }
 
-export function drawShopUI(canvas, iconAtlas) {
+export function drawShopUI(canvas) {
     if (!shop.open) return;
     
     const shopWidth = shop.cols * shop.slotSize + (shop.cols - 1) * shop.padding;
@@ -112,40 +119,40 @@ export function drawShopUI(canvas, iconAtlas) {
     const shopX = canvas.width / 2 - shopWidth / 2;
     const shopY = canvas.height / 2 - shopHeight / 2;
     
-    // Background with pixel style
-    drawRect(shopX - 20, shopY - 50, shopWidth + 40, shopHeight + 100, "rgba(0,0,0,0.8)");
+    // Background with pixel style - increased padding for text
+    drawRect(shopX - 50, shopY - 70, shopWidth + 100, shopHeight + 140, "rgba(0,0,0,0.8)");
     
     // Pixel border
-    drawRect(shopX - 20, shopY - 50, shopWidth + 40, 2, "#000");
-    drawRect(shopX - 20, shopY - 50, 2, shopHeight + 100, "#000");
-    drawRect(shopX + shopWidth + 18, shopY - 50, 2, shopHeight + 100, "#000");
-    drawRect(shopX - 20, shopY + shopHeight + 48, shopWidth + 40, 2, "#000");
+    drawRect(shopX - 50, shopY - 70, shopWidth + 100, 2, "#000");
+    drawRect(shopX - 50, shopY - 70, 2, shopHeight + 140, "#000");
+    drawRect(shopX + shopWidth + 48, shopY - 70, 2, shopHeight + 140, "#000");
+    drawRect(shopX - 50, shopY + shopHeight + 68, shopWidth + 100, 2, "#000");
     
     // Inner highlight
-    drawRect(shopX - 18, shopY - 48, shopWidth + 36, 2, "rgba(255,255,255,0.1)");
-    drawRect(shopX - 18, shopY - 48, 2, shopHeight + 96, "rgba(255,255,255,0.1)");
+    drawRect(shopX - 48, shopY - 68, shopWidth + 96, 2, "rgba(255,255,255,0.1)");
+    drawRect(shopX - 48, shopY - 68, 2, shopHeight + 136, "rgba(255,255,255,0.1)");
 
     // Title
-    drawPixelText("PUOTUVĖ", shopX, shopY - 35, 18, "#fff");
+    drawPixelText("PARDUOTUVĖ", shopX + 20, shopY - 50, 18, "#fff");
 
     // Player money display
     const money = playerStats.money ?? playerStats.gold ?? 0;
-    drawPixelText(`Jūsų pinigai: ${money}`, shopX, shopY + shopHeight + 20, 14, "#ffd700");
+    drawPixelText(`Jūsų pinigai: ${money}`, shopX + 20, shopY + shopHeight + 45, 14, "#ffd700");
 
     // Tab buttons
-    const buyTabX = shopX;
+    const buyTabX = shopX + 10;
     const buyTabY = shopY - 30;
-    const sellTabX = shopX + 80;
+    const sellTabX = shopX + 100;
     const sellTabY = shopY - 30;
 
-    const buyTabHovered = window.mouseX >= buyTabX && window.mouseX <= buyTabX + 60 && 
+    const buyTabHovered = window.mouseX >= buyTabX && window.mouseX <= buyTabX + 70 && 
                           window.mouseY >= buyTabY && window.mouseY <= buyTabY + 25;
-    const sellTabHovered = window.mouseX >= sellTabX && window.mouseX <= sellTabX + 60 && 
+    const sellTabHovered = window.mouseX >= sellTabX && window.mouseX <= sellTabX + 90 && 
                           window.mouseY >= sellTabY && window.mouseY <= sellTabY + 25;
 
     // Draw tab buttons
-    drawPixelButton(buyTabX, buyTabY, 60, 25, "Pirkti", shop.tab === "buy" ? "#2ecc71" : "#27ae60", "#27ae60", buyTabHovered);
-    drawPixelButton(sellTabX, sellTabY, 60, 25, "Parduoti", shop.tab === "sell" ? "#2ecc71" : "#27ae60", "#27ae60", sellTabHovered);
+    drawPixelButton(buyTabX, buyTabY, 70, 25, "Pirkti", shop.tab === "buy" ? "#2ecc71" : "#27ae60", "#27ae60", buyTabHovered);
+    drawPixelButton(sellTabX, sellTabY, 90, 25, "Parduoti", shop.tab === "sell" ? "#2ecc71" : "#27ae60", "#27ae60", sellTabHovered);
 
     if (shop.tab === "buy") {
         // Draw shop items in grid
@@ -175,20 +182,49 @@ export function drawShopUI(canvas, iconAtlas) {
             }
 
             // Draw item icon if available
-            if (iconAtlas && iconAtlas.complete) {
-                const spriteSize = 16;
-                const cols = 256 / spriteSize;
-                const iconIndex = (typeof item.icon === 'number') ? item.icon : 0;
-                const atlasX = (iconIndex % cols) * spriteSize;
-                const atlasY = Math.floor(iconIndex / cols) * spriteSize;
+            const spriteInfo = getSpriteInfo(item.slot);
+            const spriteImage = spriteInfo.image;
                 
-                ctx.drawImage(iconAtlas, atlasX, atlasY, spriteSize, spriteSize, 
-                           sx + 8, sy + 8, shop.slotSize - 16, shop.slotSize - 16);
-            } else {
-                // Fallback: draw colored rectangle with icon number
-                drawRect(sx + 8, sy + 8, shop.slotSize - 16, shop.slotSize - 16, "#444");
-                drawPixelText(`${item.icon}`, sx + shop.slotSize/2 - 8, sy + shop.slotSize/2 + 4, 12, "#fff");
-            }
+                if (spriteImage && spriteImage.complete) {
+                    const iconIndex = (typeof item.icon === 'number') ? item.icon : 0;
+                    // Adjust icon index by subtracting the offset for this slot type
+                    const adjustedIndex = iconIndex - spriteInfo.iconOffset;
+                    const coords = getSpriteCoordsFromIndex(adjustedIndex, spriteInfo.cols);
+                    
+                    const srcX = coords.col * spriteInfo.spriteWidth;
+                    const srcY = coords.row * spriteInfo.spriteHeight;
+                    
+                    // Calculate scaling to fit within slot while maintaining aspect ratio
+                    const destSize = shop.slotSize - 16;
+                    const aspectRatio = spriteInfo.spriteWidth / spriteInfo.spriteHeight;
+                    let drawWidth = destSize;
+                    let drawHeight = destSize;
+                    let offsetX = 0;
+                    let offsetY = 0;
+                    
+                    if (aspectRatio > 1) {
+                        // Wider than tall - fit to width
+                        drawHeight = destSize / aspectRatio;
+                        offsetY = (destSize - drawHeight) / 2;
+                    } else {
+                        // Taller than wide - fit to height
+                        drawWidth = destSize * aspectRatio;
+                        offsetX = (destSize - drawWidth) / 2;
+                    }
+                    
+                    ctx.drawImage(
+                        spriteImage,
+                        srcX, srcY,
+                        spriteInfo.spriteWidth, spriteInfo.spriteHeight,
+                        sx + 8 + offsetX, sy + 8 + offsetY,
+                        drawWidth, drawHeight
+                    );
+                } else {
+                    // Fallback: draw colored rectangle with icon number
+                    drawRect(sx + 8, sy + 8, shop.slotSize - 16, shop.slotSize - 16, "#444");
+                    drawPixelText(`${item.icon}`, sx + shop.slotSize/2 - 8, sy + shop.slotSize/2 + 4, 12, "#fff");
+                }
+
 
             // Rarity border
             let rarityColor = "#fff";
@@ -203,7 +239,7 @@ export function drawShopUI(canvas, iconAtlas) {
             ctx.strokeRect(sx + 2, sy + 2, shop.slotSize - 4, shop.slotSize - 4);
 
             // Price tag
-            drawPixelText(`$${item.cost}`, sx + 4, sy + shop.slotSize - 8, 10, "#ffd700");
+            drawPixelText(`${item.cost} 💰`, sx + 4, sy + shop.slotSize - 8, 10, "#ffd700");
         }
     } else if (shop.tab === "sell") {
         // Get inventory items to display
@@ -236,15 +272,49 @@ export function drawShopUI(canvas, iconAtlas) {
             }
 
             // Draw item icon if available
-            if (iconAtlas && iconAtlas.complete && inventoryItem) {
-                const spriteSize = 16;
-                const cols = 256 / spriteSize;
-                const iconIndex = (typeof inventoryItem.icon === 'number') ? inventoryItem.icon : 0;
-                const atlasX = (iconIndex % cols) * spriteSize;
-                const atlasY = Math.floor(iconIndex / cols) * spriteSize;
+            if (inventoryItem) {
+                const spriteInfo = getSpriteInfo(inventoryItem.slot);
+                const spriteImage = spriteInfo.image;
                 
-                ctx.drawImage(iconAtlas, atlasX, atlasY, spriteSize, spriteSize, 
-                               sx + 8, sy + 8, shop.slotSize - 16, shop.slotSize - 16);
+                if (spriteImage && spriteImage.complete) {
+                    const iconIndex = (typeof inventoryItem.icon === 'number') ? inventoryItem.icon : 0;
+                    // Adjust icon index by subtracting the offset for this slot type
+                    const adjustedIndex = iconIndex - spriteInfo.iconOffset;
+                    const coords = getSpriteCoordsFromIndex(adjustedIndex, spriteInfo.cols);
+                    
+                    const srcX = coords.col * spriteInfo.spriteWidth;
+                    const srcY = coords.row * spriteInfo.spriteHeight;
+                    
+                    // Calculate scaling to fit within slot while maintaining aspect ratio
+                    const destSize = shop.slotSize - 16;
+                    const aspectRatio = spriteInfo.spriteWidth / spriteInfo.spriteHeight;
+                    let drawWidth = destSize;
+                    let drawHeight = destSize;
+                    let offsetX = 0;
+                    let offsetY = 0;
+                    
+                    if (aspectRatio > 1) {
+                        // Wider than tall - fit to width
+                        drawHeight = destSize / aspectRatio;
+                        offsetY = (destSize - drawHeight) / 2;
+                    } else {
+                        // Taller than wide - fit to height
+                        drawWidth = destSize * aspectRatio;
+                        offsetX = (destSize - drawWidth) / 2;
+                    }
+                    
+                    ctx.drawImage(
+                        spriteImage,
+                        srcX, srcY,
+                        spriteInfo.spriteWidth, spriteInfo.spriteHeight,
+                        sx + 8 + offsetX, sy + 8 + offsetY,
+                        drawWidth, drawHeight
+                    );
+                } else {
+                    // Fallback: draw colored rectangle with icon number
+                    drawRect(sx + 8, sy + 8, shop.slotSize - 16, shop.slotSize - 16, "#444");
+                    drawPixelText(`${inventoryItem.icon}`, sx + shop.slotSize/2 - 8, sy + shop.slotSize/2 + 4, 12, "#fff");
+                }
             } else if (inventoryItem) {
                 // Fallback: draw colored rectangle with icon number
                 drawRect(sx + 8, sy + 8, shop.slotSize - 16, shop.slotSize - 16, "#444");
@@ -272,15 +342,18 @@ export function drawShopUI(canvas, iconAtlas) {
     }
 
     // Close button
-    const closeButtonHovered = window.mouseX >= shopX + shopWidth - 60 && 
-                              window.mouseX <= shopX + shopWidth - 10 &&
-                              window.mouseY >= shopY - 45 && 
-                              window.mouseY <= shopY - 25;
+    const closeButtonX = shopX + shopWidth - 50;
+    const closeButtonY = shopY - 45;
+    const closeButtonHovered = window.mouseX >= closeButtonX && 
+                              window.mouseX <= closeButtonX + 70 &&
+                              window.mouseY >= closeButtonY && 
+                              window.mouseY <= closeButtonY + 20;
     
-    drawPixelButton(shopX + shopWidth - 60, shopY - 45, 50, 20, "Close", "#e74c3c", "#c0392b", closeButtonHovered);
+    drawPixelButton(closeButtonX, closeButtonY, 70, 20, "Uždaryti", "#e74c3c", "#c0392b", closeButtonHovered);
     
     // Handle close button click
     if (window.mouseJustPressed && closeButtonHovered) {
+        playSound("button");
         closeShop();
     }
 
@@ -313,6 +386,10 @@ export function drawShopUI(canvas, iconAtlas) {
                     
                     // Deduct money
                     playerStats.money = money - hoveredItem.cost;
+                    
+                    // Play purchase sound
+                    playSound("purchase");
+                    
                     console.log(`Nupirkta ${hoveredItem.name} už ${hoveredItem.cost} pinigų`);
                 }
             }
@@ -338,6 +415,10 @@ export function drawShopUI(canvas, iconAtlas) {
                 // Add money to player
                 if (totalSellPrice > 0) {
                     playerStats.money = (playerStats.money || 0) + totalSellPrice;
+                    
+                    // Play sell sound
+                    playSound("sell");
+                    
                     console.log(`Parduota ${itemToSell.name} x${qty} už ${totalSellPrice} pinigų`);
                 }
             }

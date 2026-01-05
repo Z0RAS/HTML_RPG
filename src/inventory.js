@@ -1,8 +1,9 @@
-import { ctx, drawRect, drawText, drawPixelButton, drawPixelText, drawPixelInput } from "./renderer.js";
+import { ctx, drawRect, drawText, drawPixelButton, drawPixelText, drawPixelInput, getSpriteInfo, getSpriteCoordsFromIndex } from "./renderer.js";
 import { keys } from "./input.js";
 import { playerStats, getPlayerStats, loadPlayerStats, skillPoints } from "./stats.js";
 import { getInventory, getEquipment, equipItem, unequipItem } from "./api.js";
 import { toggleSkillTree } from "./skillTree.js";
+import { playSound } from "./audio.js";
 
 
 export const inventory = {
@@ -90,6 +91,9 @@ export function updateInventory(canvas) {
             inv.dragIndex = inv.hoveredSlot;
             inv.dragFromEquipSlot = null;
             inv.slots[inv.hoveredSlot] = null;
+            
+            // Play item interact sound
+            playSound("itemInteract");
 
             inv.dragOffsetX = mx;
             inv.dragOffsetY = my;
@@ -98,12 +102,15 @@ export function updateInventory(canvas) {
 
     // DRAG START FROM EQUIPMENT
 if (window.mouseDown && inv.dragging === null) {
-    const eqSlot = getHoveredEquipSlot(mx, my);
+    const eqSlot = getHoveredEquipSlot(mx, my, inv);
     if (eqSlot && equipment[eqSlot]) {
         inv.dragging = equipment[eqSlot];
         inv.dragIndex = -1; // special flag: from equipment
         inv.dragFromEquipSlot = eqSlot;
         equipment[eqSlot] = null;
+        
+        // Play item interact sound
+        playSound("itemInteract");
 
         inv.dragOffsetX = mx;
         inv.dragOffsetY = my;
@@ -147,7 +154,7 @@ if (window.mouseDown && inv.dragging === null) {
 }
 
         // DROP ON EQUIPMENT
-        const eqSlot = getHoveredEquipSlot(mx, my);
+        const eqSlot = getHoveredEquipSlot(mx, my, inv);
         if (eqSlot) {
     const requiredType = equipmentSlotTypes[eqSlot];
     const itemType = inv.dragging.type;
@@ -224,30 +231,30 @@ function findEquipmentSlotByType(type) {
     return null;
 }
 
-export function drawInventory(canvas, iconAtlas) {
+export function drawInventory(canvas) {
     if (!inventory.open) return;
 
     const inv = inventory;
 
     // BACKGROUND with pixel style
-    const bgWidth = inv.cols * inv.slotSize + (inv.cols - 1) * inv.padding + 40;
-    const bgHeight = inv.rows * inv.slotSize + (inv.rows - 1) * inv.padding + 40;
+    const bgWidth = inv.cols * inv.slotSize + (inv.cols - 1) * inv.padding + 50;
+    const bgHeight = inv.rows * inv.slotSize + (inv.rows - 1) * inv.padding + 70;
     
     // Main background
-    drawRect(inv.x - 20, inv.y - 20, bgWidth, bgHeight, "rgba(0,0,0,0.8)");
+    drawRect(inv.x - 25, inv.y - 50, bgWidth, bgHeight, "rgba(0,0,0,0.8)");
     
     // Pixel border
-    drawRect(inv.x - 20, inv.y - 20, bgWidth, 2, "#000");
-    drawRect(inv.x - 20, inv.y - 20, 2, bgHeight, "#000");
-    drawRect(inv.x + bgWidth - 22, inv.y - 20, 2, bgHeight, "#000");
-    drawRect(inv.x - 20, inv.y + bgHeight - 22, bgWidth, 2, "#000");
+    drawRect(inv.x - 25, inv.y - 50, bgWidth, 2, "#000");
+    drawRect(inv.x - 25, inv.y - 50, 2, bgHeight, "#000");
+    drawRect(inv.x + bgWidth - 27, inv.y - 50, 2, bgHeight, "#000");
+    drawRect(inv.x - 25, inv.y + bgHeight - 52, bgWidth, 2, "#000");
     
     // Inner highlight
-    drawRect(inv.x - 18, inv.y - 18, bgWidth - 4, 2, "rgba(255,255,255,0.1)");
-    drawRect(inv.x - 18, inv.y - 18, 2, bgHeight - 4, "rgba(255,255,255,0.1)");
+    drawRect(inv.x - 23, inv.y - 48, bgWidth - 4, 2, "rgba(255,255,255,0.1)");
+    drawRect(inv.x - 23, inv.y - 48, 2, bgHeight - 4, "rgba(255,255,255,0.1)");
 
     // Title
-    drawPixelText("INVENTORIUS", inv.x, inv.y - 35, 18, "#fff");
+    drawPixelText("INVENTORIUS", inv.x, inv.y - 30, 18, "#fff");
 
     // INVENTORY SLOTS
     for (let i = 0; i < inv.slots.length; i++) {
@@ -269,7 +276,7 @@ export function drawInventory(canvas, iconAtlas) {
         drawRect(sx + 2, sy + 2, 2, inv.slotSize - 4, "rgba(255,255,255,0.1)");
 
         const item = inv.slots[i];
-        if (item) drawItemIcon(item, sx, sy, inv.slotSize, iconAtlas);
+        if (item) drawItemIcon(item, sx, sy, inv.slotSize);
 
         if (i === inv.hoveredSlot) {
             drawRect(sx, sy, inv.slotSize, inv.slotSize, "rgba(46, 204, 113, 0.3)");
@@ -277,11 +284,11 @@ export function drawInventory(canvas, iconAtlas) {
     }
 
     // EQUIPMENT PANEL
-    drawEquipmentPanel(canvas, iconAtlas);
+    drawEquipmentPanel(canvas, inv);
 
     // DRAGGING ITEM
     if (inv.dragging) {
-        drawItemIcon(inv.dragging, window.mouseX - 32, window.mouseY - 32, inv.slotSize, iconAtlas);
+        drawItemIcon(inv.dragging, window.mouseX - 32, window.mouseY - 32, inv.slotSize);
     }
 
     // TOOLTIP for inventory items
@@ -293,43 +300,45 @@ export function drawInventory(canvas, iconAtlas) {
     }
 
     // TOOLTIP for equipment items
-    const hoveredEquipSlot = getHoveredEquipSlot(window.mouseX, window.mouseY);
+    const hoveredEquipSlot = getHoveredEquipSlot(window.mouseX, window.mouseY, inv);
     if (hoveredEquipSlot && equipment[hoveredEquipSlot]) {
         drawTooltip(equipment[hoveredEquipSlot]);
     }
 
-    drawCharacterStats();
+    drawCharacterStats(inv);
 }
 
 // EQUIPMENT UI
-function drawEquipmentPanel(canvas, iconAtlas) {
-    const x = canvas.width - 300;
-    const y = canvas.height / 2 - 200;
+function drawEquipmentPanel(canvas, inv) {
+    // Position to the right of inventory with some spacing
+    const invWidth = inv.cols * inv.slotSize + (inv.cols - 1) * inv.padding;
+    const x = inv.x + invWidth + 60;
+    const y = inv.y - 50;
 
     // Background
-    drawRect(x - 10, y - 40, 240, 340, "rgba(0,0,0,0.8)");
+    drawRect(x - 15, y, 280, 380, "rgba(0,0,0,0.8)");
     
     // Pixel border
-    drawRect(x - 10, y - 40, 240, 2, "#000");
-    drawRect(x - 10, y - 40, 2, 340, "#000");
-    drawRect(x + 230, y - 40, 2, 340, "#000");
-    drawRect(x - 10, y + 300, 240, 2, "#000");
+    drawRect(x - 15, y, 280, 2, "#000");
+    drawRect(x - 15, y, 2, 380, "#000");
+    drawRect(x + 265, y, 2, 380, "#000");
+    drawRect(x - 15, y + 380, 280, 2, "#000");
     
     // Inner highlight
-    drawRect(x - 8, y - 38, 236, 2, "rgba(255,255,255,0.1)");
-    drawRect(x - 8, y - 38, 2, 336, "rgba(255,255,255,0.1)");
+    drawRect(x - 13, y + 2, 276, 2, "rgba(255,255,255,0.1)");
+    drawRect(x - 13, y + 2, 2, 376, "rgba(255,255,255,0.1)");
 
     // Title
-    drawPixelText("ĮRANGA", x, y - 25, 18, "#fff");
+    drawPixelText("ĮRANGA", x, y + 20, 18, "#fff");
 
     const slots = [
-        { key: "head", label: "GALVA", x: x, y: y },
-        { key: "armor", label: "ŠARVAI", x: x, y: y + 80 },
-        { key: "gloves", label: "PIRŠTINĖS", x: x, y: y + 160 },
-        { key: "boots", label: "BATAI", x: x, y: y + 240 },
-        { key: "weapon", label: "GINKLAS", x: x + 120, y: y },
-        { key: "ring1", label: "ŽIEDAS 1", x: x + 120, y: y + 80 },
-        { key: "ring2", label: "ŽIEDAS 2", x: x + 120, y: y + 160 },
+        { key: "head", label: "GALVA", x: x, y: y + 50 },
+        { key: "armor", label: "ŠARVAI", x: x, y: y + 130 },
+        { key: "gloves", label: "PIRŠTINĖS", x: x, y: y + 210 },
+        { key: "boots", label: "BATAI", x: x, y: y + 290 },
+        { key: "weapon", label: "GINKLAS", x: x + 120, y: y + 50 },
+        { key: "ring1", label: "ŽIEDAS 1", x: x + 120, y: y + 130 },
+        { key: "ring2", label: "ŽIEDAS 2", x: x + 120, y: y + 210 },
     ];
 
     for (const s of slots) {
@@ -348,22 +357,24 @@ function drawEquipmentPanel(canvas, iconAtlas) {
         drawPixelText(s.label, s.x, s.y - 8, 10, "#ccc");
 
         const item = equipment[s.key];
-        if (item) drawItemIcon(item, s.x, s.y, 64, iconAtlas);
+        if (item) drawItemIcon(item, s.x, s.y, 64);
     }
 }
 
-function getHoveredEquipSlot(mx, my) {
-    const x = window.innerWidth - 300;
-    const y = window.innerHeight / 2 - 200;
+function getHoveredEquipSlot(mx, my, inv) {
+    // Calculate equipment panel position the same way as in drawEquipmentPanel
+    const invWidth = inv.cols * inv.slotSize + (inv.cols - 1) * inv.padding;
+    const x = inv.x + invWidth + 60;
+    const y = inv.y - 50;
 
     const slots = [
-        { key: "head", x: x, y: y },
-        { key: "armor", x: x, y: y + 80 },
-        { key: "gloves", x: x, y: y + 160 },
-        { key: "boots", x: x, y: y + 240 },
-        { key: "weapon", x: x + 120, y: y },
-        { key: "ring1", x: x + 120, y: y + 80 },
-        { key: "ring2", x: x + 120, y: y + 160 },
+        { key: "head", x: x, y: y + 50 },
+        { key: "armor", x: x, y: y + 130 },
+        { key: "gloves", x: x, y: y + 210 },
+        { key: "boots", x: x, y: y + 290 },
+        { key: "weapon", x: x + 120, y: y + 50 },
+        { key: "ring1", x: x + 120, y: y + 130 },
+        { key: "ring2", x: x + 120, y: y + 210 },
     ];
 
     for (const s of slots) {
@@ -376,14 +387,58 @@ function getHoveredEquipSlot(mx, my) {
     return null;
 }
 
-function drawItemIcon(item, x, y, size, atlas) {
-    const spriteSize = 16; // each icon is 16x16 in the atlas
-    const cols = 256 / spriteSize; // 16 columns for 256x256 atlas
+function drawItemIcon(item, x, y, size) {
+    // Get the appropriate spritesheet for this item's slot type
+    const spriteInfo = getSpriteInfo(item.slot);
+    const spriteImage = spriteInfo.image;
+    
+    // If spritesheet isn't loaded, draw fallback
+    if (!spriteImage || !spriteImage.complete) {
+        drawRect(x + 8, y + 8, size - 16, size - 16, "#444");
+        drawPixelText(`${item.icon}`, x + size/2 - 8, y + size/2 + 4, 12, "#fff");
+        return;
+    }
+    
     const iconIndex = (typeof item.icon === 'number') ? item.icon : 0;
-    const sx = (iconIndex % cols) * spriteSize;
-    const sy = Math.floor(iconIndex / cols) * spriteSize;
-
-    ctx.drawImage(atlas, sx, sy, spriteSize, spriteSize, x + 8, y + 8, size - 16, size - 16);
+    // Adjust icon index by subtracting the offset for this slot type
+    const adjustedIndex = iconIndex - spriteInfo.iconOffset;
+    const coords = getSpriteCoordsFromIndex(adjustedIndex, spriteInfo.cols);
+    
+    const sx = coords.col * spriteInfo.spriteWidth;
+    const sy = coords.row * spriteInfo.spriteHeight;
+    
+    // Calculate scaling to fit within slot while maintaining aspect ratio
+    const destSize = size - 16;
+    const aspectRatio = spriteInfo.spriteWidth / spriteInfo.spriteHeight;
+    let drawWidth = destSize;
+    let drawHeight = destSize;
+    let offsetX = 0;
+    let offsetY = 0;
+    
+    if (aspectRatio > 1) {
+        // Wider than tall - fit to width
+        drawHeight = destSize / aspectRatio;
+        offsetY = (destSize - drawHeight) / 2;
+    } else if (aspectRatio < 1) {
+        // Taller than wide - fit to height
+        drawWidth = destSize * aspectRatio;
+        offsetX = (destSize - drawWidth) / 2;
+    }
+    // If aspectRatio === 1, it's square, no offset needed
+    
+    // Debug for armor
+    if (item.slot === 'armor') {
+        console.log(`Armor render: aspect=${aspectRatio.toFixed(2)}, destSize=${destSize}, drawW=${drawWidth.toFixed(1)}, drawH=${drawHeight.toFixed(1)}, offsetX=${offsetX.toFixed(1)}, offsetY=${offsetY.toFixed(1)}`);
+    }
+    
+    // Draw the sprite scaled to fit the slot with correct aspect ratio
+    ctx.drawImage(
+        spriteImage,
+        sx, sy,
+        spriteInfo.spriteWidth, spriteInfo.spriteHeight,
+        x + 8 + offsetX, y + 8 + offsetY,
+        drawWidth, drawHeight
+    );
 
     let color = "#fff";
     if (item.rarity === "common") color = "#aaa";
@@ -461,27 +516,28 @@ export const equipmentSlotTypes = {
     ring2: "ring",
 };
 
-function drawCharacterStats() {
-    const x = 40;
-    const y = 100;
+function drawCharacterStats(inv) {
+    // Position to the left of inventory with some spacing
+    const x = inv.x - 290;
+    const y = inv.y - 50;
 
     // Background
-    drawRect(x - 10, y - 30, 220, 400, "rgba(0,0,0,0.8)");
+    drawRect(x - 15, y, 260, 450, "rgba(0,0,0,0.8)");
     
     // Pixel border
-    drawRect(x - 10, y - 30, 220, 2, "#000");
-    drawRect(x - 10, y - 30, 2, 400, "#000");
-    drawRect(x + 210, y - 30, 2, 400, "#000");
-    drawRect(x - 10, y + 370, 220, 2, "#000");
+    drawRect(x - 15, y, 260, 2, "#000");
+    drawRect(x - 15, y, 2, 450, "#000");
+    drawRect(x + 245, y, 2, 450, "#000");
+    drawRect(x - 15, y + 450, 260, 2, "#000");
     
     // Inner highlight
-    drawRect(x - 8, y - 28, 216, 2, "rgba(255,255,255,0.1)");
-    drawRect(x - 8, y - 28, 2, 396, "rgba(255,255,255,0.1)");
+    drawRect(x - 13, y + 2, 256, 2, "rgba(255,255,255,0.1)");
+    drawRect(x - 13, y + 2, 2, 446, "rgba(255,255,255,0.1)");
 
     // Title
-    drawPixelText("STATISTIKA", x, y - 20, 16, "#fff");
+    drawPixelText("STATISTIKA", x, y + 20, 16, "#fff");
 
-    let yy = y + 20;
+    let yy = y + 50;
 
     // All important stats with Lithuanian names
     const statMapping = {
@@ -513,6 +569,12 @@ function drawCharacterStats() {
             // Format percentages for crit chance and regen rates
             if (key.includes('Chance') || key.includes('Regen')) {
                 value = (value * 100).toFixed(1) + '%';
+            } else if (key === 'critDamage') {
+                // Format critical damage as multiplier (e.g., 1.5x, 2.0x)
+                value = Number(value).toFixed(1) + 'x';
+            } else if (typeof value === 'number' && !Number.isInteger(value)) {
+                // Format other decimal numbers to 1 decimal place
+                value = value.toFixed(1);
             }
             // Color code important stats differently
             let color = "#ccc";

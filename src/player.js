@@ -1,6 +1,8 @@
 import { drawRect, playerSprite, ctx } from "./renderer.js";
 import { isHubWall } from "./hub.js";
 import { isWall } from "./dungeon.js";
+import { skillStates } from "./skills.js";
+import { playWalkSound, stopWalkSound } from "./audio.js";
 
 export const player = {
     x: 0,
@@ -90,10 +92,16 @@ export function updatePlayer(dt, keys, currentScene) {
         if (canMoveY) {
             player.y = newY;
         }
+        
+        // Play walking sound based on scene
+        playWalkSound(currentScene);
     } else {
         // Not moving, reset to idle frame
         player.isMoving = false;
         player.animFrame = 0;
+        
+        // Stop walking sound
+        stopWalkSound();
     }
 
     // Atakos cooldown
@@ -126,5 +134,39 @@ export function drawPlayer() {
     } else {
         // Fallback to rectangle if sprite not loaded
         drawRect(player.x, player.y, player.w, player.h, "#ff4444");
+    }
+    
+    // Draw shield effect if active
+    if (skillStates && skillStates.activeBuffs && skillStates.activeBuffs.shield) {
+        const px = player.x + player.w / 2;
+        const py = player.y + player.h / 2;
+        const shieldRadius = 30;
+        const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+        
+        ctx.save();
+        ctx.strokeStyle = `rgba(68, 136, 255, ${pulse})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(px, py, shieldRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    // Draw armor buff effect if active
+    if (skillStates && skillStates.activeBuffs && skillStates.activeBuffs.armorBuff) {
+        const px = player.x + player.w / 2;
+        const py = player.y + player.h / 2;
+        const time = Date.now() / 1000;
+        
+        ctx.save();
+        for (let i = 0; i < 4; i++) {
+            const angle = (i / 4) * Math.PI * 2 + time;
+            const dist = 25;
+            const x = px + Math.cos(angle) * dist;
+            const y = py + Math.sin(angle) * dist;
+            ctx.fillStyle = 'rgba(136, 136, 136, 0.6)';
+            ctx.fillRect(x - 4, y - 4, 8, 8);
+        }
+        ctx.restore();
     }
 }

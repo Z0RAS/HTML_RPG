@@ -2,6 +2,7 @@ import { ctx, drawRect, drawPixelText, drawPixelButton } from "./renderer.js";
 import { playerStats, getPlayerStats } from "./stats.js";
 import { updateCharacterStats } from "./api.js";
 import { inventory } from "./inventory.js";
+import { playSound } from "./audio.js";
 
 export const skillTree = {
     open: false,
@@ -166,7 +167,7 @@ export const skills = {
         cost: 2,
         position: { x: 700, y: 260 },
         requires: 'defense2',
-        stats: { armor: 10, maxHealth: 100, healthRegen: 0.30 },
+        stats: { armor: 10, maxHealth: 100, healthRegen: 0.01 },
         branch: 'defense'
     },
 };
@@ -187,6 +188,7 @@ export function initSkillTree(canvas) {
 }
 
 export function toggleSkillTree() {
+    playSound("button");
     skillTree.open = !skillTree.open;
     
     // Close inventory when opening skill tree
@@ -229,6 +231,7 @@ export async function updateSkillTree(canvas) {
     if (window.mouseJustPressed && skillTree.hoveredSkill) {
         const skill = skills[skillTree.hoveredSkill];
         if (canLearnSkill(skill) && playerStats.skillPoints >= skill.cost) {
+            playSound("button");
             await learnSkill(skill);
         }
     }

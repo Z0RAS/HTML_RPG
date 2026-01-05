@@ -1,4 +1,7 @@
 import { getCharacterStats, updateCharacterStats } from "./api.js";
+import { playSound } from "./audio.js";
+import { openClassMergeUI } from "./classMergeUI.js";
+import { resetSkillStates } from "./skills.js";
 
 export let playerStats = {};
 export let levelUpAnimation = { active: false, timer: 0 };
@@ -19,6 +22,8 @@ export async function loadPlayerStats(charId) {
     const currentMoney = playerStats.money || 0;
     const currentMaxHealth = playerStats.maxHealth;
     const currentMaxMana = playerStats.maxMana;
+    const currentHealth = playerStats.health; // Preserve current health
+    const currentMana = playerStats.mana; // Preserve current mana
     
     // Update playerStats with fresh data from server
     playerStats = newStats;
@@ -36,21 +41,38 @@ export async function loadPlayerStats(charId) {
     if (!playerStats.xp) playerStats.xp = 0;
     if (!playerStats.xpToNext) playerStats.xpToNext = 100; // First level requires 100 XP
     if (!playerStats.maxHealth) playerStats.maxHealth = 100;
-    if (!playerStats.health) playerStats.health = playerStats.maxHealth;
+    
+    // Preserve current health/mana instead of resetting to max
+    if (currentHealth !== undefined && currentHealth !== null) {
+        playerStats.health = Math.min(currentHealth, playerStats.maxHealth); // Cap at new max if it changed
+    } else if (!playerStats.health) {
+        playerStats.health = playerStats.maxHealth; // Only reset if no previous value
+    }
+    
     if (!playerStats.maxMana) playerStats.maxMana = 50;
-    if (!playerStats.mana) playerStats.mana = playerStats.maxMana;
+    if (currentMana !== undefined && currentMana !== null) {
+        playerStats.mana = Math.min(currentMana, playerStats.maxMana); // Cap at new max if it changed
+    } else if (!playerStats.mana) {
+        playerStats.mana = playerStats.maxMana; // Only reset if no previous value
+    }
+    
     if (!playerStats.critChance) playerStats.critChance = 0.05; // 5% base crit chance
     if (!playerStats.critDamage) playerStats.critDamage = 1.5; // 150% base crit damage
-    if (!playerStats.healthRegen) playerStats.healthRegen = 0.01; // 1% health regen per second
-    if (!playerStats.manaRegen) playerStats.manaRegen = 0.02; // 2% mana regen per second
+    if (playerStats.healthRegen === undefined || playerStats.healthRegen === null) playerStats.healthRegen = 0.002; // 0.2% health regen per second
+    if (playerStats.manaRegen === undefined || playerStats.manaRegen === null) playerStats.manaRegen = 0.02; // 2% mana regen per second
     if (!playerStats.skillPoints) playerStats.skillPoints = 0; // Initialize skill points
     if (!playerStats.money) playerStats.money = 0; // Initialize money
+    if (!playerStats.mergedClass) playerStats.mergedClass = null; // Class merge for ultimate
+    if (!playerStats.ultimateSkill) playerStats.ultimateSkill = null; // Ultimate skill name
+    
+    // Reset skill cooldowns and buffs for the new character
+    resetSkillStates();
     
     console.log("Player stats loaded:", playerStats);
 }
 
 export function updatePlayerStats(dt) {
-    if (!playerStats.xp || !playerStats.xpToNext) return;
+    if (playerStats.xp === undefined || playerStats.xp === null || playerStats.xpToNext === undefined || playerStats.xpToNext === null) return;
     
     // Check for level up
     if (playerStats.xp >= playerStats.xpToNext) {
@@ -67,14 +89,35 @@ export function updatePlayerStats(dt) {
     }
     
     // Health and mana regeneration
-    if (playerStats.maxHealth && playerStats.health && playerStats.healthRegen) {
-        const healthRegenAmount = playerStats.maxHealth * playerStats.healthRegen * dt;
+    if (playerStats.maxHealth && playerStats.health && playerStats.healthRegen && playerStats.healthRegen > 0) {
+        // Database stores regen as display percentage (e.g., 150 or 1.5 for 150%)
+        // Convert to proper decimal: if value > 1, divide by 100
+        let actualHealthRegen = playerStats.healthRegen;
+        if (actualHealthRegen > 1) {
+            actualHealthRegen = actualHealthRegen / 100; // Convert 150 to 1.5, or 1.5 to 0.015
+        }
+        
+        // Cap health regen at 0.5% (0.005) to prevent overpowered regeneration
+        const cappedHealthRegen = Math.min(actualHealthRegen, 0.005);
+        const healthRegenAmount = playerStats.maxHealth * cappedHealthRegen * dt;
         playerStats.health = Math.min(playerStats.health + healthRegenAmount, playerStats.maxHealth);
+        // Round to 2 decimal places to avoid floating point precision issues
+        playerStats.health = Math.round(playerStats.health * 100) / 100;
     }
     
-    if (playerStats.maxMana && playerStats.mana && playerStats.manaRegen) {
-        const manaRegenAmount = playerStats.maxMana * playerStats.manaRegen * dt;
+    if (playerStats.maxMana && playerStats.mana && playerStats.manaRegen && playerStats.manaRegen > 0) {
+        // Database stores regen as display percentage
+        let actualManaRegen = playerStats.manaRegen;
+        if (actualManaRegen > 1) {
+            actualManaRegen = actualManaRegen / 100;
+        }
+        
+        // Cap mana regen at 2% (0.02) - mana regen can be a bit faster
+        const cappedManaRegen = Math.min(actualManaRegen, 0.02);
+        const manaRegenAmount = playerStats.maxMana * cappedManaRegen * dt;
         playerStats.mana = Math.min(playerStats.mana + manaRegenAmount, playerStats.maxMana);
+        // Round to 2 decimal places to avoid floating point precision issues
+        playerStats.mana = Math.round(playerStats.mana * 100) / 100;
     }
 }
 
@@ -95,8 +138,8 @@ function levelUp() {
     if (!playerStats.intelligence) playerStats.intelligence = 10;
     if (!playerStats.critChance) playerStats.critChance = 0.05; // 5% base crit chance
     if (!playerStats.critDamage) playerStats.critDamage = 1.5; // 150% base crit damage
-    if (!playerStats.healthRegen) playerStats.healthRegen = 0.01; // 1% health regen per second
-    if (!playerStats.manaRegen) playerStats.manaRegen = 0.02; // 2% mana regen per second
+    if (playerStats.healthRegen === undefined || playerStats.healthRegen === null) playerStats.healthRegen = 0.002; // 0.2% health regen per second
+    if (playerStats.manaRegen === undefined || playerStats.manaRegen === null) playerStats.manaRegen = 0.02; // 2% mana regen per second
     
     // Stat increases per level
     playerStats.maxHealth += 10;
@@ -108,7 +151,7 @@ function levelUp() {
     playerStats.intelligence += 2;
     playerStats.critChance += 0.01; // +1% crit chance per level
     playerStats.critDamage += 0.1; // +10% crit damage per level
-    playerStats.healthRegen += 0.002; // +0.2% health regen per level
+    playerStats.healthRegen += 0.0005; // +0.05% health regen per level
     playerStats.manaRegen += 0.003; // +0.3% mana regen per level
     
     // Add skill points (2 per level)
@@ -123,5 +166,14 @@ function levelUp() {
     levelUpAnimation.active = true;
     levelUpAnimation.timer = 3.0; // 3 second animation
     
+    // Play level up sound
+    playSound("levelUp");
+    
     console.log(`LEVEL UP! You are now level ${playerStats.level}! +2 skill points`);
+    
+    // Check for level 10 ultimate unlock
+    if (playerStats.level === 10 && !playerStats.ultimateSkill) {
+        // Open merge UI shortly after the level-up animation starts
+        setTimeout(() => openClassMergeUI(), 500);
+    }
 }

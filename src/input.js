@@ -1,5 +1,6 @@
 import { chat, handleChatInput, toggleChat } from "./chat.js";
 import { getScene } from "./gameState.js";
+import { useSkill } from "./skills.js";
 
 export const keys = {};
 
@@ -16,6 +17,14 @@ export function initInput() {
         if (e.key.toLowerCase() === "t" && getScene() === "hub" && !chat.open) {
             e.preventDefault(); // Prevent 't' from being added to input
             toggleChat();
+            return;
+        }
+        
+        // Skill activation (1-4 keys, works in both hub and dungeon)
+        const currentScene = getScene();
+        if ((currentScene === "dungeon" || currentScene === "hub") && ["1", "2", "3", "4"].includes(e.key)) {
+            const slotIndex = parseInt(e.key) - 1;
+            useSkill(slotIndex);
             return;
         }
         

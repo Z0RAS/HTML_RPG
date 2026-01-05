@@ -1,5 +1,10 @@
-import { logout } from "./auth.js";
+import { logout } from "./api.js";
 import { canvas, ctx, drawPixelButton, drawPixelText } from "./renderer.js";
+import { playSound } from "./audio.js";
+import { openCharacterSelect, charSelectUI } from "./characterSelectUI.js";
+import { disconnectMultiplayer } from "./multiplayer.js";
+import { loginUI } from "./loginUI.js";
+import { playMusic } from "./audio.js";
 
 export let uiState = {
     settingsOpen: false
@@ -26,9 +31,9 @@ export function drawUI() {
 
         // Settings panel background
         const panelX = canvas.width/2 - 200;
-        const panelY = canvas.height/2 - 150;
+        const panelY = canvas.height/2 - 175;
         const panelWidth = 400;
-        const panelHeight = 300;
+        const panelHeight = 350;
         
         ctx.fillStyle = "rgba(0,0,0,0.8)";
         ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
@@ -48,10 +53,21 @@ export function drawUI() {
         // Title
         drawPixelText("NUSTATYMAI", panelX + 20, panelY + 30, 24, "#fff");
 
+        // Character Select button
+        drawPixelButton(
+            panelX + 80,
+            panelY + 80,
+            240,
+            50,
+            "PASIRINKTI PERSONAŽĄ",
+            "#3498db",
+            "#2980b9"
+        );
+
         // Logout button
         drawPixelButton(
             panelX + 80,
-            panelY + 100,
+            panelY + 150,
             240,
             50,
             "ATSIJUNGTI",
@@ -62,7 +78,7 @@ export function drawUI() {
         // Close button
         drawPixelButton(
             panelX + 80,
-            panelY + 170,
+            panelY + 220,
             240,
             40,
             "UŽDARYTI",
@@ -81,6 +97,7 @@ window.addEventListener("mousedown", (e) => {
     if (!uiState.settingsOpen) {
         if (mx > canvas.width - 70 && mx < canvas.width - 10 &&
             my > 10 && my < 50) {
+            playSound("button");
             uiState.settingsOpen = true;
             return;
         }
@@ -88,19 +105,53 @@ window.addEventListener("mousedown", (e) => {
 
     if (uiState.settingsOpen) {
         const panelX = canvas.width/2 - 200;
-        const panelY = canvas.height/2 - 150;
+        const panelY = canvas.height/2 - 175;
+        
+        // Character Select button
+        if (mx > panelX + 80 && mx < panelX + 320 &&
+            my > panelY + 80 && my < panelY + 130) {
+            playSound("button");
+            // Get userId from charSelectUI
+            const userId = charSelectUI.userId;
+            if (userId) {
+                openCharacterSelect(userId);
+            } else {
+                console.error("No userId found for character select");
+            }
+            uiState.settingsOpen = false;
+            return;
+        }
         
         // Logout - updated button size and position
         if (mx > panelX + 80 && mx < panelX + 320 &&
-            my > panelY + 100 && my < panelY + 150) {
+            my > panelY + 150 && my < panelY + 200) {
+            playSound("button");
+            
+            // Disconnect from multiplayer
+            disconnectMultiplayer();
+            
+            // Clear auth token
             logout();
+            
+            // Reset UI states
+            charSelectUI.active = false;
+            charSelectUI.selected = null;
+            charSelectUI.characters = [];
+            charSelectUI.userId = null;
+            
+            // Show login screen
+            loginUI.active = true;
+            loginUI.mode = "login";
+            playMusic("login");
+            
             uiState.settingsOpen = false;
             return;
         }
 
         // Close - updated button size and position
         if (mx > panelX + 80 && mx < panelX + 320 &&
-            my > panelY + 170 && my < panelY + 210) {
+            my > panelY + 220 && my < panelY + 260) {
+            playSound("button");
             uiState.settingsOpen = false;
             return;
         }

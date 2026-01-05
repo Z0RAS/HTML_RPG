@@ -1,7 +1,8 @@
-import { canvas, ctx, drawPixelButton, drawPixelInput, drawPixelText } from "./renderer.js";
+import { canvas, ctx, drawPixelButton, drawPixelInput, drawPixelText, backgroundAnimated } from "./renderer.js";
 import { createCharacter } from "./api.js";
 import { loadPlayerStats } from "./stats.js";
 import { openCharacterSelect } from "./characterSelectUI.js";
+import { playSound } from "./audio.js";
 
 const bgImg = new Image();
 bgImg.src = "src/assets/background.png";
@@ -10,7 +11,10 @@ export let characterUI = {
     active: false,
     userId: null,
     name: "",
-    selectedClass: "warrior"
+    selectedClass: "warrior",
+    bgAnimFrame: 0,
+    bgAnimTimer: 0,
+    bgAnimSpeed: 0.08
 };
 
 export const classStats = {
@@ -19,17 +23,60 @@ export const classStats = {
     tank:    { health:200, mana:40, strength:6, agility:3, intelligence:3 }
 };
 
+export function updateCharacterUI(dt) {
+    if (!characterUI.active) return;
+    
+    // Update background animation (8 frames total: 5 columns x 2 rows, last 2 empty)
+    characterUI.bgAnimTimer += dt;
+    if (characterUI.bgAnimTimer >= characterUI.bgAnimSpeed) {
+        characterUI.bgAnimTimer = 0;
+        characterUI.bgAnimFrame = (characterUI.bgAnimFrame + 1) % 8;
+    }
+}
+
 export function drawCharacterUI() {
     if (!characterUI.active) return;
 
-    // Draw background image if available
-    if (bgImg && bgImg.complete && bgImg.width > 0) {
-        try { ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height); } catch (e) {}
-        ctx.fillStyle = "rgba(0,0,0,0.35)";
+    // Animated background
+    if (backgroundAnimated && backgroundAnimated.complete) {
+        // Background sprite: 5 columns × 2 rows (2800x544, each frame 560x272)
+        const frameWidth = 560;
+        const frameHeight = 272;
+        const cols = 5;
+        const frame = characterUI.bgAnimFrame || 0;
+        const col = frame % cols;
+        const row = Math.floor(frame / cols);
+        const sx = col * frameWidth;
+        const sy = row * frameHeight;
+        
+        // Scale to fit canvas while maintaining aspect ratio
+        const scaleX = canvas.width / frameWidth;
+        const scaleY = canvas.height / frameHeight;
+        const scale = Math.max(scaleX, scaleY);
+        const displayWidth = frameWidth * scale;
+        const displayHeight = frameHeight * scale;
+        const offsetX = (canvas.width - displayWidth) / 2;
+        const offsetY = (canvas.height - displayHeight) / 2;
+        
+        ctx.drawImage(
+            backgroundAnimated,
+            sx, sy, frameWidth, frameHeight,
+            offsetX, offsetY, displayWidth, displayHeight
+        );
+        
+        // Dark overlay for readability
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     } else {
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Fallback to old background or dark overlay
+        if (bgImg && bgImg.complete && bgImg.width > 0) {
+            try { ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height); } catch (e) {}
+            ctx.fillStyle = "rgba(0,0,0,0.35)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
     }
 
     // Title
@@ -99,14 +146,15 @@ window.addEventListener("mousedown", async (e) => {
 
     // Class selection
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 50) {
-        if (my > 275 && my < 310) characterUI.selectedClass = "warrior";
-        if (my > 315 && my < 350) characterUI.selectedClass = "mage";
-        if (my > 355 && my < 390) characterUI.selectedClass = "tank";
+        if (my > 275 && my < 310) { playSound("button"); characterUI.selectedClass = "warrior"; }
+        if (my > 315 && my < 350) { playSound("button"); characterUI.selectedClass = "mage"; }
+        if (my > 355 && my < 390) { playSound("button"); characterUI.selectedClass = "tank"; }
     }
 
     // Create button
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
         my > 520 && my < 570) {
+        playSound("button");
 
         if (characterUI.name.trim().length < 2) {
             alert("Įveskite vardą");
@@ -133,6 +181,7 @@ window.addEventListener("mousedown", async (e) => {
     // Back button click -> return to character select
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
         my > 580 && my < 620) {
+        playSound("button");
         characterUI.active = false;
         await openCharacterSelect(characterUI.userId);
         return;

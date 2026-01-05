@@ -3,6 +3,7 @@ import { ctx } from "./renderer.js";
 export const floatingNumbers = [];
 
 export function addFloatingNumber(x, y, value, isCrit = false, isHeal = false) {
+    console.log(`addFloatingNumber called: pos=(${x}, ${y}), value=${value}, isCrit=${isCrit}, isHeal=${isHeal}`);
     floatingNumbers.push({
         x: x,
         y: y,
@@ -15,6 +16,7 @@ export function addFloatingNumber(x, y, value, isCrit = false, isHeal = false) {
         velocityY: -50, // pixels per second (moves upward)
         velocityX: (Math.random() - 0.5) * 20 // slight horizontal spread
     });
+    console.log(`floatingNumbers array now has ${floatingNumbers.length} items`);
 }
 
 export function updateFloatingNumbers(dt) {
@@ -40,16 +42,21 @@ export function updateFloatingNumbers(dt) {
 }
 
 export function drawFloatingNumbers(cameraTransform = null) {
+    if (floatingNumbers.length > 0) {
+        console.log(`Drawing ${floatingNumbers.length} floating numbers`);
+    }
     ctx.save();
     
     for (const num of floatingNumbers) {
         let x = num.x;
         let y = num.y;
         
-        // Apply camera transform if provided (for in-game world coordinates)
+        // Apply camera transform if provided (for screen-space coordinates)
+        // If null, we're already in world coordinate system
         if (cameraTransform) {
-            x = cameraTransform(num.x, num.y).x;
-            y = cameraTransform(num.x, num.y).y;
+            const transformed = cameraTransform(num.x, num.y);
+            x = transformed.x;
+            y = transformed.y;
         }
         
         // Determine color and size based on type

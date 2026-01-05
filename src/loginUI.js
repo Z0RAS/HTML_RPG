@@ -1,7 +1,8 @@
 import { login, register, getCharacters } from "./api.js";
-import { canvas, ctx, drawPixelButton, drawPixelInput, drawPixelText } from "./renderer.js";
+import { canvas, ctx, drawPixelButton, drawPixelInput, drawPixelText, backgroundAnimated, titleImage } from "./renderer.js";
 import { characterUI } from "./characterCreationUI.js";
 import { openCharacterSelect } from "./characterSelectUI.js";
+import { unlockAudio, playSound } from "./audio.js";
 
 export let loginUI = {
     active: true,
@@ -10,7 +11,10 @@ export let loginUI = {
     password: "",
     repeatPassword: "",
     focus: "username",
-    message: ""
+    message: "",
+    bgAnimFrame: 0,
+    bgAnimTimer: 0,
+    bgAnimSpeed: 0.08
 };
 
 // Klaviatūra
@@ -55,42 +59,47 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("mousedown", (e) => {
     if (!loginUI.active) return;
     if (characterUI.active) return; // jeigu kuriam character, login nebegaudo
+    
+    // Unlock audio on first user interaction
+    unlockAudio();
 
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
-    // Username field
+    // Username field (Y: 300, height: 40)
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-        my > 250 && my < 290) {
+        my > 300 && my < 340) {
         loginUI.focus = "username";
     }
 
-    // Password field
+    // Password field (Y: 390, height: 40)
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-        my > 340 && my < 380) {
+        my > 390 && my < 430) {
         loginUI.focus = "password";
     }
 
-    // Repeat password field (only in register mode)
+    // Repeat password field (only in register mode) (Y: 480, height: 40)
     if (loginUI.mode === "register") {
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 430 && my < 470) {
+            my > 480 && my < 520) {
             loginUI.focus = "repeat";
         }
     }
 
     // LOGIN MODE BUTTONS
     if (loginUI.mode === "login") {
-        // Login button
+        // Login button (Y: 470, height: 50)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 420 && my < 470) {
+            my > 470 && my < 520) {
+            playSound("button");
             doLogin();
         }
 
-        // Switch to register
+        // Switch to register (Y: 530, height: 40)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 480 && my < 520) {
+            my > 530 && my < 570) {
+            playSound("button");
             loginUI.mode = "register";
             loginUI.username = "";
             loginUI.password = "";
@@ -101,15 +110,17 @@ window.addEventListener("mousedown", (e) => {
 
     // REGISTER MODE BUTTONS
     if (loginUI.mode === "register") {
-        // Register button
+        // Register button (Y: 550, height: 50)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 500 && my < 550) {
+            my > 550 && my < 600) {
+            playSound("button");
             doRegister();
         }
 
-        // Back to login
+        // Back to login (Y: 610, height: 40)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 560 && my < 600) {
+            my > 610 && my < 650) {
+            playSound("button");
             loginUI.mode = "login";
             loginUI.message = "";
         }
@@ -164,28 +175,79 @@ export async function doRegister() {
     characterUI.name = "";
 }
 
+// Update animation
+export function updateLoginUI(dt) {
+    if (!loginUI.active) return;
+    
+    // Update background animation (8 frames total: 5 columns x 2 rows, last 2 empty)
+    loginUI.bgAnimTimer += dt;
+    if (loginUI.bgAnimTimer >= loginUI.bgAnimSpeed) {
+        loginUI.bgAnimTimer = 0;
+        loginUI.bgAnimFrame = (loginUI.bgAnimFrame + 1) % 8;
+    }
+}
+
 // PIEŠIMAS
 export function drawLoginUI() {
     if (!loginUI.active) return;
 
-    // Dark overlay
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Animated background
+    if (backgroundAnimated && backgroundAnimated.complete) {
+        // Background sprite: 5 columns × 2 rows (2800x544, each frame 560x272)
+        const frameWidth = 560;
+        const frameHeight = 272;
+        const cols = 5;
+        const frame = loginUI.bgAnimFrame || 0;
+        const col = frame % cols;
+        const row = Math.floor(frame / cols);
+        const sx = col * frameWidth;
+        const sy = row * frameHeight;
+        
+        // Scale to fit canvas while maintaining aspect ratio
+        const scaleX = canvas.width / frameWidth;
+        const scaleY = canvas.height / frameHeight;
+        const scale = Math.max(scaleX, scaleY);
+        const displayWidth = frameWidth * scale;
+        const displayHeight = frameHeight * scale;
+        const offsetX = (canvas.width - displayWidth) / 2;
+        const offsetY = (canvas.height - displayHeight) / 2;
+        
+        ctx.drawImage(
+            backgroundAnimated,
+            sx, sy, frameWidth, frameHeight,
+            offsetX, offsetY, displayWidth, displayHeight
+        );
+        
+        // Dark overlay for readability
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+        // Fallback to dark overlay
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
-    // Title
-    drawPixelText(
-        loginUI.mode === "login" ? "PRISIJUNGIMAS" : "REGISTRACIJA",
-        canvas.width / 2 - 120,
-        120,
-        24,
-        "#fff"
-    );
+    // Game title image
+    if (titleImage && titleImage.complete) {
+        const titleWidth = 400;
+        const titleHeight = (titleImage.height / titleImage.width) * titleWidth;
+        ctx.drawImage(
+            titleImage,
+            canvas.width / 2 - titleWidth / 2,
+            40,
+            titleWidth,
+            titleHeight
+        );
+    }
+
+    // Game tagline with keywords
+    drawPixelText("Dungeon Crawler - 2D Pixel RPG • Browser RPG • Bullet Hell", canvas.width / 2 - 170, 200, 12, "#ffd700");
 
     // Username label and input
-    drawPixelText("Vartotojas:", canvas.width / 2 - 150, 230, 16, "#fff");
+    drawPixelText("Vartotojas:", canvas.width / 2 - 150, 280, 16, "#fff");
     drawPixelInput(
         canvas.width / 2 - 150, 
-        250, 
+        300, 
         300, 
         40, 
         loginUI.username, 
@@ -193,10 +255,10 @@ export function drawLoginUI() {
     );
 
     // Password label and input
-    drawPixelText("Slaptažodis:", canvas.width / 2 - 150, 320, 16, "#fff");
+    drawPixelText("Slaptažodis:", canvas.width / 2 - 150, 370, 16, "#fff");
     drawPixelInput(
         canvas.width / 2 - 150, 
-        340, 
+        390, 
         300, 
         40, 
         "*".repeat(loginUI.password.length), 
@@ -205,10 +267,10 @@ export function drawLoginUI() {
 
     // Repeat password (only in register mode)
     if (loginUI.mode === "register") {
-        drawPixelText("Pakartokite:", canvas.width / 2 - 150, 410, 16, "#fff");
+        drawPixelText("Pakartokite:", canvas.width / 2 - 150, 460, 16, "#fff");
         drawPixelInput(
             canvas.width / 2 - 150, 
-            430, 
+            480, 
             300, 
             40, 
             "*".repeat(loginUI.repeatPassword.length), 
@@ -219,7 +281,7 @@ export function drawLoginUI() {
     // Main action button
     drawPixelButton(
         canvas.width / 2 - 150,
-        loginUI.mode === "login" ? 420 : 500,
+        loginUI.mode === "login" ? 470 : 550,
         300,
         50,
         loginUI.mode === "login" ? "PRISIJUNGTI" : "SUKURTI PASKYRĄ",
@@ -230,7 +292,7 @@ export function drawLoginUI() {
     // Secondary button
     drawPixelButton(
         canvas.width / 2 - 150,
-        loginUI.mode === "login" ? 480 : 560,
+        loginUI.mode === "login" ? 530 : 610,
         300,
         40,
         loginUI.mode === "login" ? "SUKURTI PASKYRĄ" : "ATGAL Į PRISIJUNGIMĄ",
@@ -243,7 +305,7 @@ export function drawLoginUI() {
         drawPixelText(
             loginUI.message,
             canvas.width / 2 - 150,
-            loginUI.mode === "login" ? 540 : 620,
+            loginUI.mode === "login" ? 590 : 670,
             14,
             "#e74c3c"
         );

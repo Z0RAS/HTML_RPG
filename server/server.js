@@ -58,6 +58,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
+
 // Promisified DB helpers
 function dbRunAsync(sql, params = []) {
     return new Promise((resolve, reject) => db.run(sql, params, function (err) {
@@ -73,6 +74,27 @@ function dbGetAsync(sql, params = []) {
 function dbAllAsync(sql, params = []) {
     return new Promise((resolve, reject) => db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows)));
 }
+
+// Ensure new columns exist (merged_class, ultimate_skill) for persistence
+async function ensureCharacterColumns() {
+    try {
+        const columns = await dbAllAsync("PRAGMA table_info(characters)");
+        const names = columns.map(c => c.name);
+        const alters = [];
+        if (!names.includes("merged_class")) {
+            alters.push(dbRunAsync("ALTER TABLE characters ADD COLUMN merged_class TEXT"));
+        }
+        if (!names.includes("ultimate_skill")) {
+            alters.push(dbRunAsync("ALTER TABLE characters ADD COLUMN ultimate_skill TEXT"));
+        }
+        await Promise.all(alters);
+    } catch (e) {
+        console.error("Failed to ensure character columns:", e);
+    }
+}
+
+// Kick off column check (best-effort, non-blocking)
+ensureCharacterColumns();
 
 // Load schema and make class and items inserts idempotent (avoid UNIQUE constraint on restart)
 const schemaPath = path.join(__dirname, "schema.sql");
@@ -285,6 +307,35 @@ app.post("/createCharacter", authenticateToken, async (req, res) => {
         res.json({ success: true, charId });
     } catch (err) {
         res.status(500).json({ success: false, error: String(err) });
+    }
+});
+
+// Delete character endpoint
+app.delete("/character/:charId", authenticateToken, async (req, res) => {
+    const charId = parseInt(req.params.charId);
+    
+    try {
+        // Verify character belongs to user
+        const character = await dbGetAsync(
+            "SELECT user_id FROM characters WHERE id = ?",
+            [charId]
+        );
+        
+        if (!character) {
+            return res.status(404).json({ success: false, error: "Character not found" });
+        }
+        
+        if (character.user_id !== req.user.userId) {
+            return res.status(403).json({ success: false, error: "Not your character" });
+        }
+        
+        // Delete character (inventory and equipment are stored as JSON in the character row)
+        await dbRunAsync("DELETE FROM characters WHERE id = ?", [charId]);
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error deleting character:", error);
+        res.status(500).json({ success: false, error: "Database error" });
     }
 });
 
@@ -510,14 +561,17 @@ app.put("/characterStats/:charId", authenticateToken, async (req, res) => {
                 strength = ?, agility = ?, intelligence = ?, 
                 crit_chance = ?, crit_damage = ?, armor = ?, damage = ?,
                 health_regen = ?, mana_regen = ?, money = ?, skill_points = ?,
-                skill_tree_data = ?
+                skill_tree_data = ?,
+                merged_class = ?, ultimate_skill = ?
             WHERE id = ?
         `, [
             stats.level, stats.xp, stats.health, stats.maxHealth, stats.mana, stats.maxMana,
             stats.strength, stats.agility, stats.intelligence,
             stats.critChance, stats.critDamage, stats.armor, stats.damage,
             stats.healthRegen, stats.manaRegen, stats.money, stats.skillPoints || 0,
-            stats.skillTreeData || null, charId
+            stats.skillTreeData || null,
+            stats.mergedClass || null, stats.ultimateSkill || null,
+            charId
         ]);
         
         res.json({ success: true });

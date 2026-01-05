@@ -1,7 +1,24 @@
+import { chat, handleChatInput, toggleChat } from "./chat.js";
+import { getScene } from "./gameState.js";
+
 export const keys = {};
 
 export function initInput() {
     window.addEventListener("keydown", (e) => {
+        // Handle chat input first
+        if (chat.open) {
+            if (handleChatInput(e)) {
+                return; // Chat handled the input
+            }
+        }
+        
+        // Toggle chat with 'T' key (only in hub)
+        if (e.key.toLowerCase() === "t" && getScene() === "hub" && !chat.open) {
+            toggleChat();
+            e.preventDefault();
+            return;
+        }
+        
         keys[e.key.toLowerCase()] = true;
         if (e.key === "+" || e.key === "=") keys["+"] = true;
         if (e.key === "-") keys["-"] = true;

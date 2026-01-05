@@ -1,4 +1,6 @@
 import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import sqlite3 from "sqlite3";
 import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
@@ -12,6 +14,14 @@ import { calculateFinalStats } from "./stats.js";
 import * as storage from "./storage.js";
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 app.use(bodyParser.json());
 app.use(cors());
@@ -573,4 +583,94 @@ app.get("/admin/database", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+// ===== MULTIPLAYER HUB =====
+const hubPlayers = new Map(); // userId -> {x, y, name, characterId}
+
+// Socket.io authentication middleware
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+        return next(new Error("Authentication error"));
+    }
+    
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return next(new Error("Invalid token"));
+        socket.userId = decoded.userId;
+        next();
+    });
+});
+
+io.on("connection", (socket) => {
+    console.log(`Player connected: ${socket.userId}`);
+    
+    // Join hub
+    socket.on("joinHub", async (data) => {
+        const { characterId, characterName, x, y } = data;
+        
+        hubPlayers.set(socket.userId, {
+            socketId: socket.id,
+            userId: socket.userId,
+            characterId,
+            characterName,
+            x: x || 400,
+            y: y || 300
+        });
+        
+        // Send current players to new player
+        const players = Array.from(hubPlayers.values());
+        socket.emit("hubPlayers", players);
+        
+        // Broadcast new player to others
+        socket.broadcast.emit("playerJoined", {
+            userId: socket.userId,
+            characterId,
+            characterName,
+            x: x || 400,
+            y: y || 300
+        });
+        
+        console.log(`${characterName} joined hub`);
+    });
+    
+    // Player movement
+    socket.on("playerMove", (data) => {
+        const player = hubPlayers.get(socket.userId);
+        if (player) {
+            player.x = data.x;
+            player.y = data.y;
+            
+            // Broadcast to others
+            socket.broadcast.emit("playerMoved", {
+                userId: socket.userId,
+                x: data.x,
+                y: data.y
+            });
+        }
+    });
+    
+    // Chat message
+    socket.on("chatMessage", (message) => {
+        const player = hubPlayers.get(socket.userId);
+        if (player && message.trim()) {
+            io.emit("chatMessage", {
+                userId: socket.userId,
+                characterName: player.characterName,
+                message: message.trim(),
+                timestamp: Date.now()
+            });
+        }
+    });
+    
+    // Disconnect
+    socket.on("disconnect", () => {
+        const player = hubPlayers.get(socket.userId);
+        if (player) {
+            console.log(`${player.characterName} left hub`);
+            hubPlayers.delete(socket.userId);
+            socket.broadcast.emit("playerLeft", socket.userId);
+        }
+    });
+});
+
+httpServer.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

@@ -2,7 +2,7 @@ import { setupRenderer, beginDraw, endDraw, ctx, iconAtlas, canvas, drawText, dr
 import { initInput, updateInput, keys } from "./input.js";
 import { camera, updateCamera } from "./camera.js";
 import { player, initPlayer, updatePlayer, drawPlayer } from "./player.js";
-import { hub, updateHub, drawHub } from "./hub.js";
+import { hub, updateHub, drawHub, updateMultiplayerPosition } from "./hub.js";
 import { dungeon, generateDungeon, drawDungeon, updateDungeon } from "./dungeon.js";
 import { updateUI, drawUI } from "./ui.js";
 import { inventory, updateInventory, drawInventory, initInventory, loadInventoryFromDB } from "./inventory.js";
@@ -17,6 +17,8 @@ import { drawShopUI, shop, openShop, closeShop, updateShop } from "./shop.js";
 import { shootFireball, updateProjectiles, drawProjectiles } from "./projectiles.js";
 import { updateFloatingNumbers, drawFloatingNumbers } from "./floatingNumbers.js";
 import { getScene, setScene } from "./gameState.js";
+import { initMultiplayer, joinHub } from "./multiplayer.js";
+import { chat, drawChat, toggleChat, handleChatInput } from "./chat.js";
 
 // ✅ PRIDĖTA
 import { initEnemies, updateEnemies, drawEnemies, groundDrops, enemies, drawGroundDrops } from "./enemies.js";
@@ -24,7 +26,8 @@ import { playerAttack } from "./playerAttack.js";
 import { addInventoryItem } from "./api.js";
 import { playerStats, levelUpAnimation, updatePlayerStats } from "./stats.js";
 
-
+// Initialize multiplayer
+initMultiplayer();
 
 let last = 0;
 window.mouseX = 0;
@@ -43,6 +46,20 @@ window.addEventListener("mousemove", (e) => {
 
 window.addEventListener("mousedown", () => window.mouseDown = true);
 window.addEventListener("mouseup", () => window.mouseDown = false);
+
+// Chat keyboard handler
+window.addEventListener("keydown", (e) => {
+    // If chat is handling input, prevent default game controls
+    if (handleChatInput(e)) {
+        return;
+    }
+    
+    // Toggle chat with 'T' key (only in hub)
+    if (e.key.toLowerCase() === 't' && getScene() === 'hub' && !chat.open) {
+        toggleChat();
+        e.preventDefault();
+    }
+});
 
 async function loop(t) {
     const dt = (t - last) / 1000;
@@ -107,8 +124,11 @@ async function update(dt) {
 
     // ✅ HUB scena
     if (getScene() === "hub") {
-            updateHub(dt, canvas);
+        updateHub(dt, canvas);
         updateCamera(player, hub, canvas);
+        
+        // Send player position to other players
+        updateMultiplayerPosition(player.x, player.y, dt);
 
         // Shop proximity detection - now uses 'e' key
         const shopDist = Math.hypot(player.x - (hub.shopX + hub.shopWidth/2), player.y - (hub.shopY + hub.shopHeight/2));
@@ -417,6 +437,11 @@ function draw() {
 
         // ✅ UI
         drawUI();
+    }
+
+    // ✅ Chat window (only in hub)
+    if (getScene() === "hub") {
+        drawChat();
     }
 
     // ✅ Login / Character Creation / Character Select (drawn last, on top of everything)

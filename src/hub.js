@@ -1,4 +1,6 @@
 import { drawRect, drawText, ctx } from "./renderer.js";
+import { otherPlayers, sendPosition, isMultiplayerConnected } from "./multiplayer.js";
+import { camera } from "./camera.js";
 
 export const hub = {
     width: 800,
@@ -48,6 +50,9 @@ export function drawHub() {
     
     // Left wall
     drawRect(0, 0, 20, hub.height, "#808080");
+    
+    // Draw other players BEFORE local player
+    drawOtherPlayers();
     drawRect(0, 0, 2, hub.height, "#606060");
     drawRect(18, 0, 2, hub.height, "#606060");
     
@@ -200,4 +205,51 @@ function drawCircleStroke(x, y, r, color, width = 1) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.stroke();
+}
+
+// Draw other players in hub
+export function drawOtherPlayers() {
+    if (!isMultiplayerConnected()) return;
+    
+    otherPlayers.forEach((player) => {
+        const screenX = player.x - camera.x;
+        const screenY = player.y - camera.y;
+        
+        // Draw player body (simple colored circle)
+        ctx.fillStyle = "#4a90e2";
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw player name above head
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.font = "12px Arial";
+        ctx.textAlign = "center";
+        ctx.strokeText(player.characterName, screenX, screenY - 20);
+        ctx.fillText(player.characterName, screenX, screenY - 20);
+    });
+}
+
+// Track and send player position
+let lastSentPosition = { x: 0, y: 0 };
+let positionUpdateTimer = 0;
+
+export function updateMultiplayerPosition(playerX, playerY, dt) {
+    positionUpdateTimer += dt;
+    
+    // Send position every 100ms and only if moved
+    if (positionUpdateTimer > 0.1) {
+        positionUpdateTimer = 0;
+        
+        const dx = Math.abs(playerX - lastSentPosition.x);
+        const dy = Math.abs(playerY - lastSentPosition.y);
+        
+        if (dx > 2 || dy > 2) {
+            sendPosition(playerX, playerY);
+            lastSentPosition.x = playerX;
+            lastSentPosition.y = playerY;
+        }
+    }
 }

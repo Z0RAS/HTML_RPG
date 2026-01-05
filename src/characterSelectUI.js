@@ -7,6 +7,7 @@ import { player } from "./player.js";
 import { initInventoryFromDB } from "./inventory.js";
 import { loadSkillTree, initSkillTree, resetSkillTree } from "./skillTree.js";
 import { characterUI } from "./characterCreationUI.js";
+import { joinHub } from "./multiplayer.js";
 
 
 
@@ -106,6 +107,9 @@ if (charSelectUI.selected !== null) {
         // Load chosen character stats and inventory
         await loadPlayerStats(chosen.id);
         await initInventoryFromDB();
+        
+        // Join multiplayer hub
+        joinHub(chosen.id, chosen.name, player.x, player.y);
         
         // Load and initialize skill tree for this character
         initSkillTree(canvas);

@@ -26,9 +26,6 @@ import { playerAttack } from "./playerAttack.js";
 import { addInventoryItem } from "./api.js";
 import { playerStats, levelUpAnimation, updatePlayerStats } from "./stats.js";
 
-// Initialize multiplayer
-initMultiplayer();
-
 let last = 0;
 window.mouseX = 0;
 window.mouseY = 0;
@@ -46,20 +43,6 @@ window.addEventListener("mousemove", (e) => {
 
 window.addEventListener("mousedown", () => window.mouseDown = true);
 window.addEventListener("mouseup", () => window.mouseDown = false);
-
-// Chat keyboard handler
-window.addEventListener("keydown", (e) => {
-    // If chat is handling input, prevent default game controls
-    if (handleChatInput(e)) {
-        return;
-    }
-    
-    // Toggle chat with 'T' key (only in hub)
-    if (e.key.toLowerCase() === 't' && getScene() === 'hub' && !chat.open) {
-        toggleChat();
-        e.preventDefault();
-    }
-});
 
 async function loop(t) {
     const dt = (t - last) / 1000;
@@ -351,8 +334,8 @@ function draw() {
     }
 
         // HUD: Health, Mana, XP, Money, Level (drawn after game world but before UI)
-        const barX = 20;
         const barWidth = 300;
+        const barX = (canvas.width - barWidth) / 2; // Center the bars
         const hp = (playerStats.health ?? playerStats.hp ?? 100);
         const maxHp = (playerStats.maxHealth ?? playerStats.max_hp ?? 100);
         const hpRatio = Math.max(0, Math.min(1, hp / maxHp));

@@ -1,6 +1,7 @@
-import { drawRect, drawText, ctx } from "./renderer.js";
+import { drawRect, drawText, ctx, playerSprite } from "./renderer.js";
 import { otherPlayers, sendPosition, isMultiplayerConnected } from "./multiplayer.js";
 import { camera } from "./camera.js";
+import { player } from "./player.js";
 
 export const hub = {
     width: 800,
@@ -50,9 +51,6 @@ export function drawHub() {
     
     // Left wall
     drawRect(0, 0, 20, hub.height, "#808080");
-    
-    // Draw other players BEFORE local player
-    drawOtherPlayers();
     drawRect(0, 0, 2, hub.height, "#606060");
     drawRect(18, 0, 2, hub.height, "#606060");
     
@@ -82,6 +80,22 @@ export function drawHub() {
     drawCircleStroke(p.portalX, p.portalY, p.portalR + pulse, "#0ff", 4);
     drawCircleStroke(p.portalX, p.portalY, p.portalR - 10 + pulse, "#0ff", 2);
     drawCircleStroke(p.portalX, p.portalY, p.portalR - 20 - pulse, "#0ff", 2);
+    
+    // Draw other players AFTER the ground/paths but BEFORE gates
+    drawOtherPlayers();
+    
+    // Draw local player's name
+    if (player.characterName) {
+        const screenX = player.x - camera.x;
+        const screenY = player.y - camera.y;
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+        ctx.strokeText(player.characterName, screenX, screenY - 50);
+        ctx.fillText(player.characterName, screenX, screenY - 50);
+    }
 
     // Shop sign removed (visual only)
 }
@@ -215,20 +229,44 @@ export function drawOtherPlayers() {
         const screenX = player.x - camera.x;
         const screenY = player.y - camera.y;
         
-        // Draw player body (simple colored circle)
-        ctx.fillStyle = "#4a90e2";
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
-        ctx.fill();
+        // Draw player using the same sprite
+        if (playerSprite.complete) {
+            const spriteW = 102;
+            const spriteH = 152.75;
+            const displayW = 48;
+            const displayH = 72;
+            const playerW = 24;
+            const playerH = 24;
+            
+            // Use player's animation frame and direction
+            const animFrame = player.animFrame || 0;
+            const direction = player.direction || 0;
+            const sx = animFrame * spriteW;
+            const sy = direction * spriteH;
+            
+            ctx.drawImage(
+                playerSprite,
+                sx, sy, spriteW, spriteH,
+                screenX - (displayW - playerW) / 2, 
+                screenY - (displayH - playerH),
+                displayW, displayH
+            );
+        } else {
+            // Fallback to circle if sprite not loaded
+            ctx.fillStyle = "#4a90e2";
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 12, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         // Draw player name above head
         ctx.fillStyle = "#fff";
         ctx.strokeStyle = "#000";
         ctx.lineWidth = 3;
-        ctx.font = "12px Arial";
+        ctx.font = "bold 12px Arial";
         ctx.textAlign = "center";
-        ctx.strokeText(player.characterName, screenX, screenY - 20);
-        ctx.fillText(player.characterName, screenX, screenY - 20);
+        ctx.strokeText(player.characterName, screenX, screenY - 50);
+        ctx.fillText(player.characterName, screenX, screenY - 50);
     });
 }
 
@@ -247,7 +285,7 @@ export function updateMultiplayerPosition(playerX, playerY, dt) {
         const dy = Math.abs(playerY - lastSentPosition.y);
         
         if (dx > 2 || dy > 2) {
-            sendPosition(playerX, playerY);
+            sendPosition(playerX, playerY, player.direction, player.animFrame);
             lastSentPosition.x = playerX;
             lastSentPosition.y = playerY;
         }

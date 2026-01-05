@@ -15,7 +15,8 @@ export const player = {
     animTimer: 0,
     animSpeed: 0.15, // seconds per frame
     direction: 0, // 0=down, 1=up, 2=left, 3=right
-    isMoving: false
+    isMoving: false,
+    characterName: "" // Player's character name
 };
 
 export function initPlayer(startX, startY) {

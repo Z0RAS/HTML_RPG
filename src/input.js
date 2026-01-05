@@ -14,8 +14,8 @@ export function initInput() {
         
         // Toggle chat with 'T' key (only in hub)
         if (e.key.toLowerCase() === "t" && getScene() === "hub" && !chat.open) {
+            e.preventDefault(); // Prevent 't' from being added to input
             toggleChat();
-            e.preventDefault();
             return;
         }
         

@@ -7,7 +7,7 @@ import { player } from "./player.js";
 import { initInventoryFromDB } from "./inventory.js";
 import { loadSkillTree, initSkillTree, resetSkillTree } from "./skillTree.js";
 import { characterUI } from "./characterCreationUI.js";
-import { joinHub } from "./multiplayer.js";
+import { joinHub, initMultiplayer } from "./multiplayer.js";
 
 
 
@@ -15,7 +15,8 @@ export let charSelectUI = {
     active: false,
     userId: null,
     characters: [],
-    selected: null
+    selected: null,
+    isJoining: false  // Prevent double-click
 };
 
 export async function openCharacterSelect(userId) {
@@ -100,7 +101,12 @@ if (charSelectUI.selected !== null) {
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
         my > y + 40 && my < y + 90) {
 
-        setScene("hub");
+        // Prevent double-clicking
+        if (charSelectUI.isJoining) {
+            console.log("Already joining, ignoring click");
+            return;
+        }
+        charSelectUI.isJoining = true;
 
         const chosen = charSelectUI.characters[charSelectUI.selected];
 
@@ -108,8 +114,23 @@ if (charSelectUI.selected !== null) {
         await loadPlayerStats(chosen.id);
         await initInventoryFromDB();
         
-        // Join multiplayer hub
-        joinHub(chosen.id, chosen.name, player.x, player.y);
+        // Set player's character name
+        player.characterName = chosen.name;
+        
+        // Initialize multiplayer connection and join hub
+        try {
+            await initMultiplayer();
+            await joinHub(chosen.id, chosen.name, player.x, player.y);
+        } catch (error) {
+            console.error("Failed to connect to multiplayer:", error);
+            alert("Cannot connect to multiplayer: " + error);
+            // Stay on character select screen
+            charSelectUI.isJoining = false;
+            return;
+        }
+        
+        // Only switch to hub if multiplayer connection succeeded
+        setScene("hub");
         
         // Load and initialize skill tree for this character
         initSkillTree(canvas);

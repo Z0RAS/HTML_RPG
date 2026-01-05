@@ -28,6 +28,12 @@ export function submitChatMessage() {
 export function handleChatInput(e) {
     if (!chat.open) return false;
     
+    // Ignore repeat events
+    if (e.repeat) {
+        e.preventDefault();
+        return true;
+    }
+    
     if (e.key === "Enter") {
         submitChatMessage();
         e.preventDefault();
@@ -58,7 +64,12 @@ export function handleChatInput(e) {
 
 // Draw chat window
 export function drawChat() {
-    if (!isMultiplayerConnected()) return;
+    // Don't show chat if not connected to multiplayer
+    if (!isMultiplayerConnected()) {
+        chat.open = false;
+        chat.input = "";
+        return;
+    }
     
     const chatX = 10;
     const chatY = canvas.height - 250;

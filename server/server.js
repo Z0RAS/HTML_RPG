@@ -26,6 +26,14 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-producti
 app.use(bodyParser.json());
 app.use(cors());
 
+// Disable caching for development
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
+
 // Resolve project root so we can serve index.html and assets
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -400,6 +408,18 @@ app.post("/login", (req, res) => {
         if (!bcrypt.compareSync(password, user.password_hash))
             return res.status(401).json({ success: false, error: "Invalid credentials" });
 
+        // Check if user is already connected via WebSocket
+        const existingSocketId = activeConnections.get(user.id);
+        if (existingSocketId) {
+            const existingSocket = io.sockets.sockets.get(existingSocketId);
+            if (existingSocket && existingSocket.connected) {
+                return res.status(409).json({ 
+                    success: false, 
+                    error: "Naudotojas jau prijungtas" 
+                });
+            }
+        }
+
         const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ success: true, userId: user.id, token });
     });
@@ -586,6 +606,8 @@ const PORT = process.env.PORT || 3000;
 
 // ===== MULTIPLAYER HUB =====
 const hubPlayers = new Map(); // userId -> {x, y, name, characterId}
+const activeCharacters = new Map(); // characterId -> userId
+const activeConnections = new Map(); // userId -> socketId
 
 // Socket.io authentication middleware
 io.use((socket, next) => {
@@ -602,11 +624,46 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-    console.log(`Player connected: ${socket.userId}`);
+    console.log(`✅ User ${socket.userId} connected via websocket (socket: ${socket.id})`);
+    
+    // Check for duplicate connection and reject the NEW one
+    const existingSocketId = activeConnections.get(socket.userId);
+    if (existingSocketId) {
+        const existingSocket = io.sockets.sockets.get(existingSocketId);
+        if (existingSocket && existingSocket.connected) {
+            console.log(`⚠️ User ${socket.userId} already connected (existing socket: ${existingSocketId}), rejecting new connection`);
+            socket.emit("error", "This account is already connected");
+            socket.disconnect(true);
+            return;
+        } else {
+            console.log(`♻️ Old connection ${existingSocketId} is stale, allowing new connection`);
+        }
+    }
+    activeConnections.set(socket.userId, socket.id);
     
     // Join hub
     socket.on("joinHub", async (data) => {
         const { characterId, characterName, x, y } = data;
+        
+        // Check if this character is already playing
+        const existingUserId = activeCharacters.get(characterId);
+        if (existingUserId && existingUserId !== socket.userId) {
+            console.log(`⚠️ Character ${characterName} (ID: ${characterId}) is already being played by user ${existingUserId}`);
+            socket.emit("error", "This character is already being played");
+            socket.disconnect(true);
+            return;
+        }
+        
+        // Check if this user already has an active hub session with a different character
+        const existingPlayer = hubPlayers.get(socket.userId);
+        if (existingPlayer && existingPlayer.characterId !== characterId) {
+            console.log(`⚠️ User ${socket.userId} trying to play multiple characters simultaneously`);
+            socket.emit("error", "You are already playing with another character");
+            socket.disconnect(true);
+            return;
+        }
+        
+        activeCharacters.set(characterId, socket.userId);
         
         hubPlayers.set(socket.userId, {
             socketId: socket.id,
@@ -639,12 +696,16 @@ io.on("connection", (socket) => {
         if (player) {
             player.x = data.x;
             player.y = data.y;
+            player.direction = data.direction;
+            player.animFrame = data.animFrame;
             
             // Broadcast to others
             socket.broadcast.emit("playerMoved", {
                 userId: socket.userId,
                 x: data.x,
-                y: data.y
+                y: data.y,
+                direction: data.direction,
+                animFrame: data.animFrame
             });
         }
     });
@@ -664,11 +725,17 @@ io.on("connection", (socket) => {
     
     // Disconnect
     socket.on("disconnect", () => {
+        console.log(`🔌 User ${socket.userId} disconnected (socket: ${socket.id})`);
         const player = hubPlayers.get(socket.userId);
         if (player) {
             console.log(`${player.characterName} left hub`);
+            activeCharacters.delete(player.characterId);
             hubPlayers.delete(socket.userId);
+            activeConnections.delete(socket.userId);
             socket.broadcast.emit("playerLeft", socket.userId);
+        } else {
+            // Clean up connection even if player wasn't in hub
+            activeConnections.delete(socket.userId);
         }
     });
 });

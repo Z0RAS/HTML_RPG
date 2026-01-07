@@ -166,8 +166,15 @@ window.addEventListener("mousedown", async (e) => {
             characterUI.selectedClass
         );
 
+
         if (!res.success) {
-            alert("Nepavyko sukurti charakterio");
+            if (res.error && res.error.includes("10")) {
+                alert("Palaukite 10s prieš bandydami sukurti naują charakterį");
+            } else if (res.error && res.error.includes("limit")) {
+                alert("Charakterių limitas pasiektas 4/4");
+            } else {
+                alert("Nepavyko sukurti charakterio");
+            }
             return;
         }
 

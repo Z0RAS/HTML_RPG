@@ -205,7 +205,7 @@ app.post("/createCharacter", authenticateToken, async (req, res) => {
     const now = Date.now();
     const last = characterCreateTimestamps.get(userId) || 0;
     if (now - last < 10000) {
-        return res.status(429).json({ success: false, error: "Please wait before creating another character." });
+        return res.status(429).json({ success: false, error: "Palaukite 10s prieš bandydami sukurti naują charakterį" });
     }
     characterCreateTimestamps.set(userId, now);
 
@@ -213,7 +213,7 @@ app.post("/createCharacter", authenticateToken, async (req, res) => {
     try {
         const userChars = await dbAllAsync("SELECT id FROM characters WHERE user_id = ?", [userId]);
         if (userChars && userChars.length >= 4) {
-            return res.status(400).json({ success: false, error: "Character limit reached (4)." });
+            return res.status(400).json({ success: false, error: "Charakterių limitas pasiektas 4/4" });
         }
     } catch (e) {
         return res.status(500).json({ success: false, error: "Database error (character limit check)" });

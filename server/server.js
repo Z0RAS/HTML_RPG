@@ -151,10 +151,11 @@ function validateInput(fields) {
 }
 
 // ===== PUBLIC ENDPOINTS =====
+
 // REGISTER
 app.post("/register", async (req, res) => {
     const { username, password } = req.body;
-    
+
     console.log("Register attempt:", { username, password: password ? "***" : "empty" });
 
     // Validate input
@@ -190,11 +191,33 @@ app.post("/register", async (req, res) => {
     });
 });
 
+// In-memory rate limit for character creation (userId -> timestamp)
+const characterCreateTimestamps = new Map();
+
 
 // ===== PROTECTED ENDPOINTS =====
 app.post("/createCharacter", authenticateToken, async (req, res) => {
+
     const { name, className } = req.body;
     const userId = req.user.userId; // From JWT token
+
+    // Rate limit: 1 character creation per 10 seconds per user
+    const now = Date.now();
+    const last = characterCreateTimestamps.get(userId) || 0;
+    if (now - last < 10000) {
+        return res.status(429).json({ success: false, error: "Please wait before creating another character." });
+    }
+    characterCreateTimestamps.set(userId, now);
+
+    // Character limit: max 4 per user
+    try {
+        const userChars = await dbAllAsync("SELECT id FROM characters WHERE user_id = ?", [userId]);
+        if (userChars && userChars.length >= 4) {
+            return res.status(400).json({ success: false, error: "Character limit reached (4)." });
+        }
+    } catch (e) {
+        return res.status(500).json({ success: false, error: "Database error (character limit check)" });
+    }
 
     const classes = {
         warrior: {

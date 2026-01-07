@@ -55,7 +55,7 @@ export function drawClassMergeUI() {
 
     // Title and subtitle
     drawPixelText("Klasės sujungimas (Lygis 10)", panelX + 20, panelY + 20, 16, "#ffd700");
-    drawPixelText("Pasirink junginį ir atlaisvink ultimatą", panelX + 20, panelY + 44, 10, "#bbb");
+    drawPixelText("Pasirink junginį ir atrakink sugebėjimą", panelX + 20, panelY + 44, 10, "#bbb");
 
     const classIcons = { warrior: "⚔️", mage: "🔮", tank: "🛡️" };
     const classNames = { warrior: "Karys", mage: "Magas", tank: "Tankas" };

@@ -134,7 +134,7 @@ export async function updateProjectiles(dt) {
             }
         }
 
-        // Collision su priešais (only if projectile is from player)
+        // Collision with enemeies (only if projectile is from player)
         if (p.owner === 'player') {
             for (const e of enemies) {
                 if (!e.alive) continue;

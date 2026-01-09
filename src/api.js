@@ -37,7 +37,7 @@ function getHeaders() {
     return headers;
 }
 
-// ✅ AUTH
+// Authentication API
 export async function register(username, password) {
     const res = await fetch(`${API}/register`, {
         method: "POST",
@@ -64,7 +64,7 @@ export async function login(username, password) {
     return data;
 }
 
-// ✅ CHARACTERS
+// Get characters for user
 export async function getCharacters(userId) {
     const res = await fetch(`${API}/characters/${userId}`, {
         headers: getHeaders()
@@ -72,6 +72,7 @@ export async function getCharacters(userId) {
     return await res.json();
 }
 
+// Get character stats
 export async function getCharacterStats(charId) {
     const res = await fetch(`${API}/characterStats/${charId}`, {
         headers: getHeaders()
@@ -79,6 +80,7 @@ export async function getCharacterStats(charId) {
     return await res.json();
 }
 
+// Create new character
 export async function createCharacter(name, className) {
     const res = await fetch(`${API}/createCharacter`, {
         method: "POST",
@@ -90,6 +92,7 @@ export async function createCharacter(name, className) {
     return data;
 }
 
+// Delete character
 export async function deleteCharacter(charId) {
     const res = await fetch(`${API}/character/${charId}`, {
         method: "DELETE",
@@ -98,7 +101,7 @@ export async function deleteCharacter(charId) {
     return await res.json();
 }
 
-// ✅ INVENTORY API
+// INVENTORY API
 // Update inventory JSON for character
 export async function updateCharacterInventory(charId, inventoryArr) {
     const res = await fetch(`${API}/inventory/updateInventory`, {
@@ -108,6 +111,8 @@ export async function updateCharacterInventory(charId, inventoryArr) {
     });
     return await res.json();
 }
+
+// Add item to inventory
 export async function addInventoryItem(charId, itemId, quantity = 1) {
     const res = await fetch(`${API}/inventory/add`, {
         method: "POST",
@@ -117,6 +122,7 @@ export async function addInventoryItem(charId, itemId, quantity = 1) {
     return await res.json();
 }
 
+// Get inventory for character
 export async function getInventory(charId) {
     const res = await fetch(`${API}/inventory/${charId}`, {
         headers: getHeaders()
@@ -125,6 +131,7 @@ export async function getInventory(charId) {
 }
 
 // EQUIPMENT API
+// Get equipment for character
 export async function getEquipment(charId) {
     const res = await fetch(`${API}/equipment/${charId}`, {
         headers: getHeaders()
@@ -132,6 +139,7 @@ export async function getEquipment(charId) {
     return await res.json();
 }
 
+// Equip item
 export async function equipItem(charId, slot, itemId) {
     const res = await fetch(`${API}/equipment/equip`, {
         method: "POST",
@@ -141,6 +149,7 @@ export async function equipItem(charId, slot, itemId) {
     return await res.json();
 }
 
+// Unequip item
 export async function unequipItem(charId, slot) {
     const res = await fetch(`${API}/equipment/unequip`, {
         method: "POST",
@@ -150,6 +159,8 @@ export async function unequipItem(charId, slot) {
     return await res.json();
 }
 
+// CHARACTER STATS API
+// Update character stats
 export async function updateCharacterStats(charId, stats) {
     const res = await fetch(`${API}/characterStats/${charId}`, {
         method: "PUT",
@@ -159,6 +170,8 @@ export async function updateCharacterStats(charId, stats) {
     return await res.json();
 }
 
+// ITEMS API
+// Get item details
 export async function getItem(itemId) {
     const res = await fetch(`${API}/item/${itemId}`, {
         headers: getHeaders()
@@ -166,6 +179,8 @@ export async function getItem(itemId) {
     return await res.json();
 }
 
+// SHOP API
+// Get shop items
 export async function getShopItems() {
     const res = await fetch(`${API}/shop/items`, {
         headers: getHeaders()

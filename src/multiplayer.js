@@ -50,7 +50,7 @@ export function initMultiplayer() {
         
         socket.on("connect", () => {
             isConnected = true;
-            console.log("✅ Multiplayer connected");
+            console.log("Multiplayer connected");
             // Resolve immediately on connect
             if (!connectionResolved) {
                 connectionResolved = true;
@@ -61,7 +61,7 @@ export function initMultiplayer() {
         socket.on("disconnect", () => {
             isConnected = false;
             otherPlayers.clear();
-            console.log("❌ Multiplayer disconnected");
+            console.log("Multiplayer disconnected");
             
             // If disconnected before connection was confirmed, reject
             if (!connectionResolved) {
@@ -71,7 +71,7 @@ export function initMultiplayer() {
         });
         
         socket.on("error", (errorMessage) => {
-            console.error("🚫 Multiplayer error:", errorMessage);
+            console.error("Multiplayer error:", errorMessage);
             if (!connectionResolved) {
                 connectionResolved = true;
                 alert(errorMessage);
@@ -81,7 +81,7 @@ export function initMultiplayer() {
         });
         
         socket.on("connect_error", (error) => {
-            console.error("🚫 Connection error:", error.message);
+            console.error("Connection error:", error.message);
             if (!connectionResolved) {
                 connectionResolved = true;
                 reject(error.message);

@@ -45,7 +45,21 @@ export function drawDifficultyUI() {
     ctx.fillRect(panelX + 2, panelY + 2, 2, panelHeight - 4);
 
     // Title
-    drawPixelText("PASIRINKITE SUNKUMĄ", panelX + 100, panelY + 40, 24, "#fff");
+    drawPixelText("PASIRINKITE SUNKUMĄ", panelX + 130, panelY + 40, 24, "#fff");
+
+    // UI Close Button (X)
+    const closeBtnX = panelX + panelWidth - 40;
+    const closeBtnY = panelY + 20;
+    ctx.fillStyle = "#c0392b";
+    ctx.fillRect(closeBtnX, closeBtnY, 28, 28);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(closeBtnX, closeBtnY, 28, 28);
+    ctx.font = "bold 22px monospace";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("X", closeBtnX + 14, closeBtnY + 15);
 
     // Easy button
     const isEasy = difficultyUI.selected === "easy";
@@ -58,7 +72,7 @@ export function drawDifficultyUI() {
         isEasy ? "#27ae60" : "#2ecc71",
         isEasy ? "#229954" : "#27ae60"
     );
-    drawPixelText("Priešai: Dabartiniai", panelX + 60, panelY + 145, 14, "#fff");
+    drawPixelText("Priešai: 50% jūsų statistikos", panelX + 60, panelY + 140, 14, "#fff");
 
     // Medium button
     const isMedium = difficultyUI.selected === "medium";
@@ -71,7 +85,7 @@ export function drawDifficultyUI() {
         isMedium ? "#e67e22" : "#f39c12",
         isMedium ? "#d35400" : "#e67e22"
     );
-    drawPixelText("Priešai: 50% jūsų statistikos", panelX + 60, panelY + 225, 14, "#fff");
+    drawPixelText("Priešai: 75% jūsų statistikos", panelX + 60, panelY + 220, 14, "#fff");
 
     // Hard button
     const isHard = difficultyUI.selected === "hard";
@@ -84,7 +98,7 @@ export function drawDifficultyUI() {
         isHard ? "#c0392b" : "#e74c3c",
         isHard ? "#a93226" : "#c0392b"
     );
-    drawPixelText("Priešai: 100% jūsų statistikos", panelX + 60, panelY + 305, 14, "#fff");
+    drawPixelText("Priešai: 100% jūsų statistikos", panelX + 60, panelY + 300, 14, "#fff");
 
     // Confirm button
     drawPixelButton(
@@ -103,6 +117,8 @@ export function handleDifficultyClick(mx, my) {
 
     const panelX = canvas.width/2 - 250;
     const panelY = canvas.height/2 - 200;
+    const panelWidth = 500;
+    const panelHeight = 400;
 
     // Easy
     if (mx > panelX + 50 && mx < panelX + 450 &&
@@ -137,15 +153,23 @@ export function handleDifficultyClick(mx, my) {
         return "confirm";
     }
 
+    // X button close
+    if (mx > panelX + panelWidth - 40 && mx < panelX + panelWidth - 12 &&
+        my > panelY + 20 && my < panelY + 48) {
+        playSound("button");
+        closeDifficultySelect();
+        return "close";
+    }
+
     return false;
 }
 
 export function getDifficultyMultiplier() {
     switch (currentDifficulty) {
         case "easy":
-            return 1.0; // Current stats
+            return 0.5; // Current stats
         case "medium":
-            return 0.5; // Half player stats
+            return 0.75; // Half player stats
         case "hard":
             return 1.0; // Full player stats
         default:

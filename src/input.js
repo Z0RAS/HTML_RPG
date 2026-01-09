@@ -19,6 +19,13 @@ export function initInput() {
             toggleChat();
             return;
         }
+
+        // Toggle chat UI visibility with 'L' key (anywhere)
+        if (e.key.toLowerCase() === "l") {
+            e.preventDefault();
+            chat.visible = !chat.visible;
+            return;
+        }
         
         // Skill activation (1-4 keys, works in both hub and dungeon)
         const currentScene = getScene();

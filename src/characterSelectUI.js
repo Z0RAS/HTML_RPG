@@ -88,7 +88,7 @@ export function drawCharacterSelectUI() {
     }
 
     // Title
-    drawPixelText("PASIRINKITE CHARAKTERĮ", canvas.width/2 - 180, 120, 24, "#fff");
+    drawPixelText("PASIRINKITE CHARAKTERĮ", canvas.width/2 - 150, 120, 24, "#fff");
 
     if (!charSelectUI.characters || !Array.isArray(charSelectUI.characters)) {
         drawPixelText("Nepavyko užkrauti charakterių...", canvas.width/2 - 150, 250, 16, "#ff0000");
@@ -98,16 +98,11 @@ export function drawCharacterSelectUI() {
     let y = 200;
     charSelectUI.characters.forEach((ch, index) => {
         const isSelected = charSelectUI.selected === index;
-        const classNamesLT = { warrior: "Karžygys", mage: "Magas", tank: "Tvirtasis" };
+        const classNamesLT = { warrior: "Karžygys", mage: "Magas", tank: "Tankas" };
         const classLabel = classNamesLT[ch.class] || (ch.class || "");
         
         // Character button
-        drawPixelButton(
-            canvas.width/2 - 200,
-            y - 25,
-            330,
-            40,
-            `${ch.name} (Lygis ${ch.level}) — ${classLabel}`,
+        drawPixelButton(canvas.width/2 - 195, y - 25, 330, 40, `${ch.name} (Lygis ${ch.level}) — ${classLabel}`,
             isSelected ? "#2ecc71" : "#34495e",
             isSelected ? "#27ae60" : "#2c3e50"
         );

@@ -1,5 +1,5 @@
 import { ctx, batSprite, slimeSprite, flySprite, getSpriteInfo, getSpriteCoordsFromIndex } from "./renderer.js";
-import { addInventoryItem, getItem } from "./api.js";
+import { getItem } from "./api.js";
 import { playerStats } from "./stats.js";
 import { dungeon } from "./dungeon.js";
 import { spawnProjectile } from "./projectiles.js";
@@ -683,6 +683,16 @@ export async function onEnemyKilled(enemy) {
     const moneyDrop = Math.floor((enemy.maxHp || 10) * (0.5 + Math.random() * 1.5));
     if (moneyDrop > 0) {
         playerStats.money = (playerStats.money || 0) + moneyDrop;
+        // Išsaugom pinigus į duomenų bazę
+        (async () => {
+            const api = await import("./api.js");
+            const charId = playerStats.id;
+            const statsToUpdate = {
+                ...playerStats,
+                money: playerStats.money
+            };
+            await api.updateCharacterStats(charId, statsToUpdate);
+        })();
     }
 
     if (Math.random() <= (enemy.lootChance || 0)) {
@@ -748,14 +758,6 @@ export function spawnBoss() {
     enemies.push(boss);
 }
 
-function getItemSymbol(itemId) {
-    const symbols = {
-        1: "S", 2: "D", 3: "H", 4: "M", 5: "F", 6: "A",
-        7: "B", 8: "R", 9: "R", 10: "W", 11: "G", 12: "R",
-        13: "P", 14: "T", 15: "A"
-    };
-    return symbols[itemId] || "?";
-}
 
 export function drawEnemies() {
     const batSpriteSize = 32; // bat sprite sheet is 32x32 per frame
@@ -810,12 +812,6 @@ export function drawEnemies() {
                 sx, sy, batSpriteSize, batSpriteSize, // Source: 32x32 from spritesheet
                 e.x - size/2, e.y - size/2, size, size // Destination: scaled to display size
             );
-        } else {
-            // Fallback to circle if sprite not loaded
-            ctx.fillStyle = e.isBoss ? "purple" : "darkred";
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-            ctx.fill();
         }
 
         // Health bar
@@ -828,14 +824,7 @@ export function drawEnemies() {
         ctx.fillStyle = "red";
         ctx.fillRect(bx, by, barWidth * hpRatio, 8);
         
-        // Status effect indicators
-        if (e.stunned) {
-            ctx.font = "20px monospace";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = "#ffff00";
-            ctx.fillText("💫", e.x, e.y - e.radius - 30);
-        }
+        // Status effects
         if (e.slowed) {
             ctx.font = "16px monospace";
             ctx.textAlign = "center";
@@ -843,13 +832,6 @@ export function drawEnemies() {
             ctx.fillStyle = "#00ffff";
             ctx.fillText("❄️", e.x + 15, e.y - e.radius - 25);
         }
-
-        if (e.itemId) {
-            ctx.font = "12px monospace";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = "white";
-            ctx.fillText(getItemSymbol(e.itemId), e.x, e.y);
-        }
+        
     }
 }

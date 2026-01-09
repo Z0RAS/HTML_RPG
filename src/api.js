@@ -85,7 +85,9 @@ export async function createCharacter(name, className) {
         headers: getHeaders(),
         body: JSON.stringify({ name, className })
     });
-    return await res.json();
+    const data = await res.json();
+    data.status = res.status;
+    return data;
 }
 
 export async function deleteCharacter(charId) {
@@ -97,6 +99,15 @@ export async function deleteCharacter(charId) {
 }
 
 // ✅ INVENTORY API
+// Update inventory JSON for character
+export async function updateCharacterInventory(charId, inventoryArr) {
+    const res = await fetch(`${API}/inventory/updateInventory`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({ charId, inventory: inventoryArr })
+    });
+    return await res.json();
+}
 export async function addInventoryItem(charId, itemId, quantity = 1) {
     const res = await fetch(`${API}/inventory/add`, {
         method: "POST",

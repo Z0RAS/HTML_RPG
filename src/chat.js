@@ -1,10 +1,11 @@
-import { canvas, ctx } from "./renderer.js";
+import { canvas, ctx, drawPixelText } from "./renderer.js";
 import { chatMessages, sendChatMessage, isMultiplayerConnected } from "./multiplayer.js";
 
 export const chat = {
     open: false,
     input: "",
-    maxMessages: 10
+    maxMessages: 10,
+    visible: true // Controls chat UI visibility
 };
 
 // Toggle chat
@@ -64,8 +65,8 @@ export function handleChatInput(e) {
 
 // Draw chat window
 export function drawChat() {
-    // Don't show chat if not connected to multiplayer
-    if (!isMultiplayerConnected()) {
+    // Don't show chat if not connected to multiplayer or not visible
+    if (!isMultiplayerConnected() || !chat.visible) {
         chat.open = false;
         chat.input = "";
         return;
@@ -86,26 +87,18 @@ export function drawChat() {
     ctx.strokeRect(chatX, chatY, chatWidth, chatHeight);
     
     // Title
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 14px Arial";
-    ctx.fillText("Chat (Press T)", chatX + 10, chatY + 20);
+    drawPixelText("(T) ATIDARYTI POKALBIŲ LANGĄ", chatX + 10, chatY + 20, 16, "#fff");
     
     // Messages
     const visibleMessages = chatMessages.slice(-chat.maxMessages);
-    ctx.font = "12px Arial";
-    
     let msgY = chatY + 40;
     visibleMessages.forEach(msg => {
-        const text = `${msg.characterName}: ${msg.message}`;
-        
         // Name in color
-        ctx.fillStyle = "#4a90e2";
-        ctx.fillText(msg.characterName + ":", chatX + 10, msgY);
+        const nameText = msg.characterName + ":";
+        const nameWidth = drawPixelText(nameText, chatX + 10, msgY, 14, "#4a90e2");
         
         // Message in white
-        const nameWidth = ctx.measureText(msg.characterName + ": ").width;
-        ctx.fillStyle = "#fff";
-        ctx.fillText(msg.message, chatX + 10 + nameWidth, msgY);
+        drawPixelText(msg.message, chatX + 10 + nameWidth, msgY, 14, "#fff");
         
         msgY += 18;
     });
@@ -124,13 +117,9 @@ export function drawChat() {
         ctx.strokeRect(chatX + 5, inputY, chatWidth - 10, 25);
         
         // Input text
-        ctx.fillStyle = "#fff";
-        ctx.font = "12px Arial";
-        ctx.fillText(chat.input + "|", chatX + 10, inputY + 17);
+        drawPixelText(chat.input + "|", chatX + 10, inputY + 7, 14, "#fff");
     } else {
         // Hint text
-        ctx.fillStyle = "#888";
-        ctx.font = "11px Arial";
-        ctx.fillText("Press T to chat", chatX + 10, chatY + chatHeight - 10);
+        drawPixelText("(L) LANGO PASLĖPIMUI", chatX + 10, chatY + chatHeight - 18, 12, "#fff");
     }
 }

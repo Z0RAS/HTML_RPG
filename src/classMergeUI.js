@@ -13,8 +13,8 @@ const availableMerges = {
         { class: "tank", name: "Berserker", nameLT: "Berserkeris", icon: "💪🛡️", ultimate: "Unstoppable Force" }
     ],
     mage: [
-        { class: "warrior", name: "Spellblade", nameLT: "Kerėtojas Kalaviju", icon: "⚔️✨", ultimate: "Arcane Slash" },
-        { class: "tank", name: "Mystic Guardian", nameLT: "Mistinė Sargyba", icon: "🛡️🔮", ultimate: "Protective Dome" }
+        { class: "warrior", name: "Spellblade", nameLT: "Kalvijo kerėtojas", icon: "⚔️✨", ultimate: "Arcane Slash" },
+        { class: "tank", name: "Mystic Guardian", nameLT: "Mistinis Sargas", icon: "🛡️🔮", ultimate: "Protective Dome" }
     ],
     tank: [
         { class: "warrior", name: "Juggernaut", nameLT: "Jugernautas", icon: "⚔️💥", ultimate: "Ground Slam" },
@@ -42,8 +42,8 @@ export function drawClassMergeUI() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // Main panel simplified
-    const panelWidth = 520;
-    const panelHeight = 320;
+    const panelWidth = 710;
+    const panelHeight = 430;
     const panelX = (canvas.width - panelWidth) / 2;
     const panelY = (canvas.height - panelHeight) / 2;
 
@@ -54,16 +54,16 @@ export function drawClassMergeUI() {
     drawRect(panelX, panelY + panelHeight - 2, panelWidth, 2, "#555");
 
     // Title and subtitle
-    drawPixelText("Klasės sujungimas (Lygis 10)", panelX + 20, panelY + 20, 16, "#ffd700");
-    drawPixelText("Pasirink junginį ir atrakink sugebėjimą", panelX + 20, panelY + 44, 10, "#bbb");
+    drawPixelText("Klasės sujungimas (Lygis 10)", panelX + 20, panelY + 20, 18, "#ffd700");
+    drawPixelText("Pasirink junginį ir atrakink sugebėjimą", panelX + 20, panelY + 44, 12, "#bbb");
 
     const classIcons = { warrior: "⚔️", mage: "🔮", tank: "🛡️" };
     const classNames = { warrior: "Karys", mage: "Magas", tank: "Tankas" };
-    drawPixelText(`Jūsų klasė: ${classIcons[playerClass]} ${classNames[playerClass]}`, panelX + 20, panelY + 70, 12, "#fff");
+    drawPixelText(`Jūsų klasė: ${classIcons[playerClass]} ${classNames[playerClass]}`, panelX + 20, panelY + 70, 14, "#fff");
 
-    const optionStartY = panelY + 105;
-    const optionHeight = 70;
-    const optionGap = 12;
+    const optionStartY = panelY + 115;
+    const optionHeight = 80;
+    const optionGap = 14;
 
     for (let i = 0; i < merges.length; i++) {
         const merge = merges[i];
@@ -80,16 +80,16 @@ export function drawClassMergeUI() {
             drawRect(panelX + 22, optionY + 4, 4, optionHeight - 8, "#6f6");
         }
 
-        ctx.font = "28px monospace";
+        ctx.font = "30px monospace";
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#fff";
         ctx.fillText(`${classNames[playerClass]} + ${classNames[merge.class]} = ${merge.nameLT}`, panelX + 35, optionY + optionHeight / 2 - 12);
 
-        drawPixelText(`Ultimatas: ${ultimateLT} ${merge.icon}`, panelX + 35, optionY + optionHeight / 2 + 8, 10, "#ffd700");
+        drawPixelText(`Gebėjimas: ${ultimateLT} ${merge.icon}`, panelX + 35, optionY + optionHeight / 2 + 8, 12, "#ffd700");
 
         if (isSelected) {
-            drawPixelText("Pasirinkta", panelX + panelWidth - 120, optionY + optionHeight / 2 + 8, 10, "#6f6");
+            drawPixelText("Pasirinkta", panelX + panelWidth - 120, optionY + optionHeight / 2 + 8, 12, "#6f6");
         }
     }
 
@@ -103,9 +103,9 @@ export function drawClassMergeUI() {
     drawRect(buttonX, buttonY, buttonWidth, buttonHeight, canConfirm ? "#2d5f2d" : "#333");
     drawRect(buttonX, buttonY, buttonWidth, 2, canConfirm ? "#6f6" : "#444");
     drawRect(buttonX, buttonY + buttonHeight - 2, buttonWidth, 2, canConfirm ? "#6f6" : "#444");
-    drawPixelText(canConfirm ? "Patvirtinti pasirinkimą" : "Pasirink junginį", buttonX + 14, buttonY + 12, 10, canConfirm ? "#d8ffd8" : "#888");
+    drawPixelText(canConfirm ? "Patvirtinti pasirinkimą" : "Pasirink junginį", buttonX + 14, buttonY + 12, 12, canConfirm ? "#d8ffd8" : "#888");
 
-    drawPixelText("Pasirink junginį ir spausk patvirtinti", panelX + 20, panelY + panelHeight - 35, 10, "#aaa");
+    drawPixelText("Pasirink junginį ir spausk patvirtinti", panelX + 20, panelY + panelHeight - 35, 12, "#aaa");
 }
 
 export function handleClassMergeClick(mouseX, mouseY) {
@@ -114,14 +114,14 @@ export function handleClassMergeClick(mouseX, mouseY) {
     const playerClass = playerStats.class || "warrior";
     const merges = availableMerges[playerClass] || [];
     
-    const panelWidth = 520;
-    const panelHeight = 320;
+    const panelWidth = 710;
+    const panelHeight = 430;
     const panelX = (canvas.width - panelWidth) / 2;
     const panelY = (canvas.height - panelHeight) / 2;
     
-    const optionStartY = panelY + 105;
-    const optionHeight = 70;
-    const optionGap = 12;
+    const optionStartY = panelY + 115;
+    const optionHeight = 80;
+    const optionGap = 14;
 
     const buttonWidth = 200;
     const buttonHeight = 36;

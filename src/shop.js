@@ -1,9 +1,8 @@
 import { drawPixelButton, drawPixelText, drawRect, drawText, getSpriteInfo, getSpriteCoordsFromIndex } from "./renderer.js";
-import { canvas, ctx } from "./renderer.js";
-import { playerStats, getPlayerStats } from "./stats.js";
+import { ctx } from "./renderer.js";
+import { playerStats} from "./stats.js";
 import { inventory } from "./inventory.js";
-import { getInventory, addInventoryItem, getShopItems } from "./api.js";
-import { keys } from "./input.js";
+import { getShopItems } from "./api.js";
 import { playSound } from "./audio.js";
 
 export let shop = {
@@ -25,8 +24,9 @@ export async function loadShopItems() {
         const items = await getShopItems();
         shop.items = items.map(item => ({
             ...item,
-            cost: item.price, // Map price to cost for compatibility
-            type: item.slot // Map slot to type for compatibility
+            cost: item.price,
+            type: item.slot,
+            value: item.value // užtikrinam, kad value visada būtų
         }));
         shop.loaded = true;
         console.log("Shop items loaded from database:", shop.items);
@@ -49,9 +49,9 @@ export function closeShop() {
 export function updateShop(canvas) {
     if (!shop.open) return;
     
+    if (!shop.open) return;
     const mx = window.mouseX;
     const my = window.mouseY;
-    
     shop.hoveredSlot = -1;
 
     // Calculate shop position
@@ -61,18 +61,22 @@ export function updateShop(canvas) {
     const shopY = canvas.height / 2 - shopHeight / 2;
 
     // Check tab switching
-    const buyTabX = shopX;
+    const buyTabX = shopX + 10;
     const buyTabY = shopY - 30;
-    const sellTabX = shopX + 80;
+    const buyTabWidth = 70;
+    const buyTabHeight = 25;
+    const sellTabX = shopX + 100;
     const sellTabY = shopY - 30;
+    const sellTabWidth = 90;
+    const sellTabHeight = 25;
 
-    if (mx >= buyTabX && mx <= buyTabX + 60 && my >= buyTabY && my <= buyTabY + 25) {
+    if (mx >= buyTabX && mx <= buyTabX + buyTabWidth && my >= buyTabY && my <= buyTabY + buyTabHeight) {
         if (window.mouseJustPressed) {
             playSound("button");
             shop.tab = "buy";
         }
     }
-    if (mx >= sellTabX && mx <= sellTabX + 60 && my >= sellTabY && my <= sellTabY + 25) {
+    if (mx >= sellTabX && mx <= sellTabX + sellTabWidth && my >= sellTabY && my <= sellTabY + sellTabHeight) {
         if (window.mouseJustPressed) {
             playSound("button");
             shop.tab = "sell";
@@ -84,10 +88,8 @@ export function updateShop(canvas) {
         for (let i = 0; i < Math.min(shop.items.length, shop.cols * shop.rows); i++) {
             const col = i % shop.cols;
             const row = Math.floor(i / shop.cols);
-
             const sx = shopX + col * (shop.slotSize + shop.padding);
             const sy = shopY + row * (shop.slotSize + shop.padding);
-
             if (mx >= sx && mx <= sx + shop.slotSize &&
                 my >= sy && my <= sy + shop.slotSize) {
                 shop.hoveredSlot = i;
@@ -95,14 +97,12 @@ export function updateShop(canvas) {
         }
     } else if (shop.tab === "sell") {
         // Check hover over sellable inventory slots (packed list)
-        const sellableItems = inventory.slots.filter(item => item && item.id && item.id > 0);
+        const sellableItems = inventory.slots.filter(slot => slot && slot.id && slot.id > 0);
         for (let i = 0; i < Math.min(sellableItems.length, shop.cols * shop.rows); i++) {
             const col = i % shop.cols;
             const row = Math.floor(i / shop.cols);
-
             const sx = shopX + col * (shop.slotSize + shop.padding);
             const sy = shopY + row * (shop.slotSize + shop.padding);
-
             if (mx >= sx && mx <= sx + shop.slotSize &&
                 my >= sy && my <= sy + shop.slotSize) {
                 shop.hoveredSlot = i;
@@ -132,27 +132,56 @@ export function drawShopUI(canvas) {
     drawRect(shopX - 48, shopY - 68, shopWidth + 96, 2, "rgba(255,255,255,0.1)");
     drawRect(shopX - 48, shopY - 68, 2, shopHeight + 136, "rgba(255,255,255,0.1)");
 
-    // Title
-    drawPixelText("PARDUOTUVĖ", shopX + 20, shopY - 50, 18, "#fff");
+   
 
-    // Player money display
-    const money = playerStats.money ?? playerStats.gold ?? 0;
-    drawPixelText(`Jūsų pinigai: ${money}`, shopX + 20, shopY + shopHeight + 45, 14, "#ffd700");
-
-    // Tab buttons
     const buyTabX = shopX + 10;
     const buyTabY = shopY - 30;
     const sellTabX = shopX + 100;
     const sellTabY = shopY - 30;
 
-    const buyTabHovered = window.mouseX >= buyTabX && window.mouseX <= buyTabX + 70 && 
-                          window.mouseY >= buyTabY && window.mouseY <= buyTabY + 25;
-    const sellTabHovered = window.mouseX >= sellTabX && window.mouseX <= sellTabX + 90 && 
-                          window.mouseY >= sellTabY && window.mouseY <= sellTabY + 25;
+    // Hover effect 
+        let buyTabHovered = false;
+        let sellTabHovered = false;
+        if (shop.tab !== "buy" && window.mouseX >= buyTabX && window.mouseX <= buyTabX + 70 && window.mouseY >= buyTabY && window.mouseY <= buyTabY + 25) {
+            buyTabHovered = true;
+        }
+        if (shop.tab !== "sell" && window.mouseX >= sellTabX && window.mouseX <= sellTabX + 90 && window.mouseY >= sellTabY && window.mouseY <= sellTabY + 25) {
+            sellTabHovered = true;
+        }
+    const tabHoverColor = "#48ff8a";
+    drawPixelButton(
+        buyTabX - 10, buyTabY, 70, 25, "Pirkti",
+        shop.tab === "buy" ? "#2ecc71" : "#27ae60",
+        buyTabHovered ? tabHoverColor : "#27ae60",
+        buyTabHovered
+    );
+        drawPixelButton(
+            sellTabX - 10, sellTabY, 90, 25, "Parduoti",
+            shop.tab === "sell" ? "#2ecc71" : "#27ae60",
+            sellTabHovered ? tabHoverColor : "#27ae60",
+            sellTabHovered
+        );
 
-    // Draw tab buttons
-    drawPixelButton(buyTabX, buyTabY, 70, 25, "Pirkti", shop.tab === "buy" ? "#2ecc71" : "#27ae60", "#27ae60", buyTabHovered);
-    drawPixelButton(sellTabX, sellTabY, 90, 25, "Parduoti", shop.tab === "sell" ? "#2ecc71" : "#27ae60", "#27ae60", sellTabHovered);
+    // Title
+    drawPixelText("PARDUOTUVĖ", shopX - 40, shopY - 60, 18, "#fff");
+
+    // Player money display
+    const money = playerStats.money ?? playerStats.gold ?? 0;
+    drawPixelText(`Jūsų pinigai: ${money}`, shopX - 40, shopY + shopHeight + 45, 14, "#ffd700");
+
+    // Close button
+    const closeButtonX = shopX + shopWidth + 10; 
+    const closeButtonY = shopY - 70;
+    const closeButtonWidth = 40;
+    const closeButtonHeight = 32;
+    const closeButtonHovered = window.mouseX >= closeButtonX && 
+                                window.mouseX <= closeButtonX + closeButtonWidth &&
+                                window.mouseY >= closeButtonY && 
+                                window.mouseY <= closeButtonY + closeButtonHeight;
+
+    drawPixelButton(closeButtonX, closeButtonY, closeButtonWidth, closeButtonHeight, "X", "#e74c3c", "#c0392b", closeButtonHovered);
+        
+    
 
     if (shop.tab === "buy") {
         // Draw shop items in grid
@@ -239,7 +268,13 @@ export function drawShopUI(canvas) {
             ctx.strokeRect(sx + 2, sy + 2, shop.slotSize - 4, shop.slotSize - 4);
 
             // Price tag
-            drawPixelText(`${item.cost} 💰`, sx + 4, sy + shop.slotSize - 8, 10, "#ffd700");
+                const priceStr = `${item.cost}`;
+                const centsStr = ',00';
+                // centsX ties lango dešiniu kraštu, -6 kad nebūtų per arti krašto
+                const centsX = sx + shop.slotSize - 20;
+                const priceY = sy + shop.slotSize - 13;
+                drawPixelText(priceStr, centsX, priceY, 10, "#ffd700", "right");
+                drawPixelText(centsStr, centsX, priceY, 10, "#ffd700", "left");
         }
     } else if (shop.tab === "sell") {
         // Get inventory items to display
@@ -335,21 +370,17 @@ export function drawShopUI(canvas) {
                 ctx.strokeRect(sx + 2, sy + 2, shop.slotSize - 4, shop.slotSize - 4);
 
                 // Sell value tag
-                const sellPrice = Math.floor((inventoryItem.cost || 0) * 0.7);
-                drawPixelText(`$${sellPrice}`, sx + 4, sy + shop.slotSize - 8, 10, "#27ae60");
+                const sellPrice = typeof inventoryItem.value === "number" ? inventoryItem.value : 0;
+                const priceStr = `${sellPrice}`;
+                const centsStr = ',00';
+                const centsX = sx + shop.slotSize - 20;
+                const priceY = sy + shop.slotSize - 13;
+                drawPixelText(priceStr, centsX, priceY, 10, "#ffd700", "right");
+                drawPixelText(centsStr, centsX, priceY, 10, "#ffd700", "left");
             }
         }
     }
 
-    // Close button
-    const closeButtonX = shopX + shopWidth - 50;
-    const closeButtonY = shopY - 45;
-    const closeButtonHovered = window.mouseX >= closeButtonX && 
-                              window.mouseX <= closeButtonX + 70 &&
-                              window.mouseY >= closeButtonY && 
-                              window.mouseY <= closeButtonY + 20;
-    
-    drawPixelButton(closeButtonX, closeButtonY, 70, 20, "Uždaryti", "#e74c3c", "#c0392b", closeButtonHovered);
     
     // Handle close button click
     if (window.mouseJustPressed && closeButtonHovered) {
@@ -375,6 +406,7 @@ export function drawShopUI(canvas) {
                         slot: hoveredItem.slot,
                         quantity: 1,
                         cost: hoveredItem.cost,
+                        value: 0, // bus užkrauta žemiau
                         bonus_health: hoveredItem.bonus_health,
                         bonus_mana: hoveredItem.bonus_mana,
                         bonus_strength: hoveredItem.bonus_strength,
@@ -383,14 +415,33 @@ export function drawShopUI(canvas) {
                         bonus_armor: hoveredItem.bonus_armor,
                         bonus_damage: hoveredItem.bonus_damage
                     };
+                    // Užkraunam value iš duomenų bazės
+                    (async () => {
+                        const api = await import("./api.js");
+                        try {
+                            const dbItem = await api.getItem(hoveredItem.id);
+                            if (dbItem && typeof dbItem.value === "number") {
+                                inventory.slots[emptySlot].value = dbItem.value;
+                            }
+                        } catch (e) {}
+                    })();
                     
                     // Deduct money
                     playerStats.money = money - hoveredItem.cost;
                     
                     // Play purchase sound
                     playSound("purchase");
+                    // Išsaugom inventorių į duomenų bazę
+                    (async () => {
+                        const api = await import("./api.js");
+                        const charId = playerStats.id;
+                        const updatedInventory = inventory.slots.map(slot => {
+                            if (!slot || !slot.id || slot.id <= 0) return null;
+                            return { itemId: slot.id, qty: slot.quantity || 1 };
+                        }).filter(Boolean);
+                        await api.updateCharacterInventory(charId, updatedInventory);
+                    })();
                     
-                    console.log(`Nupirkta ${hoveredItem.name} už ${hoveredItem.cost} pinigų`);
                 }
             }
         }
@@ -403,23 +454,47 @@ export function drawShopUI(canvas) {
             const itemToSell = sellableItems[shop.hoveredSlot];
             if (itemToSell) {
                 const qty = itemToSell.quantity || 1;
-                const sellPricePer = Math.floor((itemToSell.cost ?? itemToSell.price ?? itemToSell.value ?? 0) * 0.7);
+                const sellPricePer = typeof itemToSell.value === "number" ? itemToSell.value : 0;
                 const totalSellPrice = sellPricePer * qty;
 
-                // Remove item from inventory
+                // Remove item from inventory and update slots array
                 const actualSlotIndex = inventory.slots.findIndex(item => item === itemToSell);
                 if (actualSlotIndex !== -1) {
+                    // Remove only the specific slot that was sold
                     inventory.slots[actualSlotIndex] = null;
+                    // Ensure inventory.slots is always 20 elements (or original length), with nulls for empty slots
+                    if (inventory.slots.length < 20) {
+                        while (inventory.slots.length < 20) inventory.slots.push(null);
+                    }
                 }
 
                 // Add money to player
                 if (totalSellPrice > 0) {
                     playerStats.money = (playerStats.money || 0) + totalSellPrice;
-                    
                     // Play sell sound
                     playSound("sell");
-                    
                     console.log(`Parduota ${itemToSell.name} x${qty} už ${totalSellPrice} pinigų`);
+                    // Išsaugom inventorių ir pinigus į duomenų bazę
+                    const charId = playerStats.id;
+                    // Save inventory as fixed-length array with nulls for empty slots
+                    const updatedInventory = inventory.slots.map(slot => {
+                        if (!slot || !slot.id || slot.id <= 0) return null;
+                        // DB expects { itemId, qty } for each item
+                        return { itemId: slot.id, qty: slot.quantity || 1 };
+                    }).filter(Boolean);
+                    import("./api.js").then(async api => {
+                        await api.updateCharacterInventory(charId, updatedInventory);
+                        // Also update money in stats
+                        const statsToUpdate = {
+                            ...playerStats,
+                            money: playerStats.money
+                        };
+                        await api.updateCharacterStats(charId, statsToUpdate);
+                        // Reload inventory from DB to sync client
+                        if (window.loadInventoryFromDB) {
+                            await window.loadInventoryFromDB();
+                        }
+                    });
                 }
             }
         }
@@ -450,10 +525,10 @@ function drawShopItemTooltip(item) {
 
     let lines = [];
 
-    // Name
+    // Namee
     lines.push({ text: item.name, size: 18, color: "#fff" });
 
-    // Type + Slot (translated)
+    // Slot
     const slotNames = {
         head: "Galva",
         armor: "Šarvai",
@@ -480,9 +555,14 @@ function drawShopItemTooltip(item) {
         });
     }
 
-    // Price
+    // Price/value
     lines.push({ text: "----------------", size: 14, color: "#555" });
-    lines.push({ text: `Kaina: ${item.cost} pinigų`, size: 14, color: "#ffd700" });
+    if (shop.tab === "sell") {
+        const sellValue = typeof item.value === "number" ? item.value : 0;
+        lines.push({ text: `Vertė: ${sellValue} pinigų`, size: 14, color: "#ffd700" });
+    } else {
+        lines.push({ text: `Kaina: ${item.cost} pinigų`, size: 14, color: "#ffd700" });
+    }
 
     // Dynamic height
     const width = 240;

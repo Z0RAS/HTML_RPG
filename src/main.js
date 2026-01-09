@@ -1,34 +1,28 @@
-import { setupRenderer, beginDraw, endDraw, ctx, canvas, drawText, drawRect, drawBackground, drawPixelButton, drawPixelInput, drawPixelText, preloadAssets } from "./renderer.js";
+import { setupRenderer, beginDraw, endDraw, ctx, canvas, drawText, drawRect, drawBackground, drawPixelText, preloadAssets } from "./renderer.js";
 import { initInput, updateInput, keys } from "./input.js";
 import { camera, updateCamera } from "./camera.js";
 import { player, initPlayer, updatePlayer, drawPlayer } from "./player.js";
 import { hub, updateHub, drawHub, updateMultiplayerPosition } from "./hub.js";
 import { dungeon, generateDungeon, drawDungeon, updateDungeon, revealAroundPlayer } from "./dungeon.js";
-import { updateUI, drawUI } from "./ui.js";
+import { updateSettingsUI, drawSettingsUI } from "./settingsUI.js";
 import { inventory, updateInventory, drawInventory, initInventory, loadInventoryFromDB } from "./inventory.js";
-import { skillTree, updateSkillTree, drawSkillTree, initSkillTree, loadSkillTree, clearAllSkillTreeData } from "./skillTree.js";
+import { updateSkillTree, drawSkillTree, initSkillTree, clearAllSkillTreeData } from "./skillTree.js";
 import { drawLoginUI, loginUI, updateLoginUI } from "./loginUI.js";
-
-// Make clearAllSkillTreeData available globally for debugging
-window.clearAllSkillTreeData = clearAllSkillTreeData;
-import { drawCharacterUI, characterUI, updateCharacterUI } from "./characterCreationUI.js";
+import { drawCharacterUI, characterUI, updateCharacterUIBackground } from "./characterCreationUI.js";
 import { drawCharacterSelectUI, charSelectUI, updateCharacterSelectUI } from "./characterSelectUI.js";
 import { drawShopUI, shop, openShop, closeShop, updateShop } from "./shop.js";
 import { shootFireball, updateProjectiles, drawProjectiles, clearProjectiles } from "./projectiles.js";
 import { updateFloatingNumbers, drawFloatingNumbers } from "./floatingNumbers.js";
 import { getScene, setScene } from "./gameState.js";
-import { initMultiplayer, joinHub } from "./multiplayer.js";
-import { chat, drawChat, toggleChat, handleChatInput } from "./chat.js";
-
-// ✅ PRIDĖTA
+import { drawChat} from "./chat.js";
 import { initEnemies, updateEnemies, drawEnemies, groundDrops, enemies, drawGroundDrops } from "./enemies.js";
-import { playerAttack, updateSlash, updateShield, drawSlash, drawShield, shield } from "./playerAttack.js";
-import { difficultyUI, openDifficultySelect, closeDifficultySelect, drawDifficultyUI, handleDifficultyClick } from "./difficultyUI.js";
-import { classMergeUI, openClassMergeUI, closeClassMergeUI, drawClassMergeUI, handleClassMergeClick } from "./classMergeUI.js";
+import { playerAttack, updateSlash, updateShield, drawSlash, drawShield} from "./playerAttack.js";
+import { difficultyUI, openDifficultySelect, drawDifficultyUI, handleDifficultyClick } from "./difficultyUI.js";
+import { classMergeUI, drawClassMergeUI, handleClassMergeClick } from "./classMergeUI.js";
 import { addInventoryItem } from "./api.js";
 import { playerStats, levelUpAnimation, updatePlayerStats } from "./stats.js";
-import { getPlayerSkills, skillStates, updateSkills, drawSkillEffects, useSkill, useUltimateSkill, ultimateSkills } from "./skills.js";
-import { loadAudio, playSound, playMusic, stopMusic } from "./audio.js";
+import { getPlayerSkills, skillStates, updateSkills, useSkill, useUltimateSkill, ultimateSkills } from "./skills.js";
+import { loadAudio, playSound, playMusic} from "./audio.js";
 
 let last = 0;
 window.mouseX = 0;
@@ -44,6 +38,8 @@ let nearDrop = null;
 let damageFlashAlpha = 0;
 let deathMessage = null;
 let deathMessageAlpha = 0;
+
+window.clearAllSkillTreeData = clearAllSkillTreeData;
 
 // Global function to trigger damage flash
 window.triggerDamageFlash = function() {
@@ -86,7 +82,7 @@ async function init() {
     ctx.fillStyle = "#fff";
     ctx.font = "24px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("Loading assets...", canvas.width / 2, canvas.height / 2);
+    ctx.fillText("Kraunami duomenys...", canvas.width / 2, canvas.height / 2);
     
     // Wait for all assets to load
     await preloadAssets();
@@ -111,15 +107,23 @@ async function update(dt) {
     
     // Update UI animations
     updateLoginUI(dt);
-    updateCharacterUI(dt);
+    updateCharacterUIBackground(dt);
     updateCharacterSelectUI(dt);
     
-    // ✅ UI blokavimas
+    //UI blokavimas
     if (loginUI.active) return;
     if (characterUI.active) return;
-    if (charSelectUI.active) return;
+    if (charSelectUI.active) {
+        // Reset dungeon when returning to character select
+        dungeon.generated = false;
+        dungeon.portal.active = false;
+        enemies.length = 0;
+        groundDrops.length = 0;
+        // (optional: reset other dungeon state if needed)
+        return;
+    }
 
-    // ✅ Store old zoom before changes
+    //Store old zoom before changes
     const oldZoom = camera.zoom;
     
     // Apply zoom changes
@@ -148,7 +152,7 @@ async function update(dt) {
         }
     }
 
-    // 🐛 DEBUG: Level up (Z key) – works in any scene
+    //DEBUG: Level up (Z key) – works in any scene
     if (keys["z"] || keys["Z"]) {
         if (playerStats.xpToNext === undefined || playerStats.xpToNext === null) {
             playerStats.xpToNext = 100;
@@ -160,7 +164,7 @@ async function update(dt) {
         keys["Z"] = false;
     }
 
-    // ✅ HUB scena
+    //HUB scena
     if (getScene() === "hub") {
         updateHub(dt, canvas);
         updateCamera(player, hub, canvas);
@@ -168,7 +172,7 @@ async function update(dt) {
         // Send player position to other players
         updateMultiplayerPosition(player.x, player.y, dt);
 
-        // Shop proximity detection - now uses 'e' key
+        // Shop proximity detection
         const shopDist = Math.hypot(player.x - (hub.shopX + hub.shopWidth/2), player.y - (hub.shopY + hub.shopHeight/2));
         if (shopDist < 120 && keys["e"] && !shop.open) {
             openShop();
@@ -211,7 +215,7 @@ async function update(dt) {
         }
     }
 
-    // ✅ DUNGEON scena
+    //DUNGEON scene
     else if (getScene() === "dungeon") {
         if (!dungeon.generated) generateDungeon();
         updateCamera(player, dungeon, canvas);
@@ -260,28 +264,21 @@ async function update(dt) {
                 portalLock = false;
             }
         }
-
-        // ✅ Melee ataka (SPACE) - only for tank
-        if ((keys[" "] || keys["Space"]) && player.attackCooldown === 0 && playerStats.class === "tank") {
-            player.attackCooldown = player.attackSpeed;
-            await playerAttack();
-        }
+    
         
-        // ✅ Skills (1-4 keys)
+        //Skills (1-4 keys)
         if (keys["1"]) useSkill(0);
         if (keys["2"]) useSkill(1);
         if (keys["3"]) useSkill(2);
         if (keys["4"]) useSkill(3);
         
-        // ✅ Ultimate skill (R key)
+        //Ultimate skill (R key)
         if (keys["r"] || keys["R"]) {
             useUltimateSkill();
         }
         
-        // ✅ Projektilai (fireball)
-        // (projectiles updated globally)
 
-        // ✅ Priešų AI + respawn
+        //Enemy updates
         updateEnemies(dt, player, keys);
 
         // ground drop proximity detection
@@ -298,7 +295,7 @@ async function update(dt) {
             }
         }
 
-        // pickup on E (debounced)
+        // pickup on E
         if (nearDrop && keys["e"] && !pickupLock && !inventory.open) {
             pickupLock = true;
             console.log("Picking up item:", nearDrop.itemId, "for character:", playerStats.id);
@@ -323,35 +320,35 @@ async function update(dt) {
         if (!keys["e"]) pickupLock = false;
     }
 
-    // ✅ Žaidėjo judėjimas
+    // Player movement (in both scenes)
     updatePlayer(dt, keys, getScene());
 
-    // ✅ Inventorius
+    // Inventory
     updateInventory(canvas);
 
-    // ✅ Skill Tree
+    // Skill Tree
     await updateSkillTree(canvas);
 
-    // ✅ Shop
+    // Shop
     updateShop(canvas);
 
-    // ✅ Projectiles (update regardless of scene so they work in hub too)
+    // Projectiles
     await updateProjectiles(dt);
     
-    // ✅ Update slash and shield animations (works in all scenes)
+    // Update slash and shield animations
     updateSlash(dt);
     updateShield(dt);
 
-    // ✅ Stats update (for level up checking)
+    // Stats update (for level up checking)
     updatePlayerStats(dt);
     
-    // ✅ Skills update (cooldowns and buffs)
+    // Skills update (cooldowns and buffs)
     updateSkills(dt);
 
-    // ✅ Floating numbers
+    // Floating numbers
     updateFloatingNumbers(dt);
     
-    // ✅ Death check
+    // Death check
     if (playerStats.health <= 0 && getScene() === "dungeon" && !deathMessage) {
         // Player died - calculate gold loss (10-30%)
         const goldLoss = Math.floor((playerStats.gold || 0) * (0.1 + Math.random() * 0.2));
@@ -413,8 +410,8 @@ async function update(dt) {
         }
     }
 
-    // ✅ UI
-    updateUI(dt);
+    // Settings UI
+    updateSettingsUI(dt);
 }
 
 // run at end of every frame to store previous mouse state
@@ -443,35 +440,33 @@ function draw() {
         ctx.scale(camera.zoom, camera.zoom);
         ctx.translate(-camera.x, -camera.y);
 
-        // ✅ HUB
+        // HUB
         if (getScene() === "hub") {
             drawHub();
         }
 
-        // ✅ DUNGEON
+        // DUNGEON
         if (getScene() === "dungeon") {
             drawDungeon();
             drawGroundDrops();   // item drops
             drawEnemies();       // priešai
         }
 
-        // ✅ Projectiles (draw in world space for all scenes)
+        // Projectiles (draw in world space for all scenes)
         drawProjectiles();   // fireball'ai
         
-        // ✅ Skill effects (draw in world space)
-        drawSkillEffects(ctx);
 
-        // ✅ Floating numbers (draw in world space - no transform needed as we're already in world coordinates)
+        // Floating numbers
         drawFloatingNumbers(null);
         
-        // ✅ Draw slash/shield effects in world space
+        // Draw slash/shield effects in world space
         drawSlash();
         drawShield();
 
-        // ✅ Žaidėjas
+        // Player
         drawPlayer();
         
-        // Draw local player's name (in world space, before restore)
+        // Draw local player's name
         if (player.characterName) {
             const playerCenterX = player.x + player.w / 2;
             const nameOffsetY = 20; // Fixed offset in world units
@@ -491,13 +486,10 @@ function draw() {
         if (nearDrop && !nearDrop.picked) {
             const sx = (nearDrop.x - camera.x) * camera.zoom;
             const sy = (nearDrop.y - camera.y) * camera.zoom;
-            drawText("Press E to pick up", sx - 48, sy - 20, 16, "#fff");
+            drawText("E OBJEKTO PAĖMIMUI", sx - 48, sy - 20, 16, "#fff");
         }
 
-    // ✅ Shop close with Escape key
-    if (keys["Escape"] && shop.open) {
-        closeShop();
-    }
+    
 
         // HUD: Health, Mana, XP, Money, Level (drawn after game world but before UI)
         const barWidth = 300;
@@ -517,7 +509,7 @@ function draw() {
         drawRect(barX, barBaseY, 2, 18, "#000");
         drawRect(barX + barWidth - 2, barBaseY, 2, 18, "#000");
         drawRect(barX, barBaseY + 2, barWidth, 2, "rgba(255,255,255,0.2)");
-        drawPixelText(`Gyvybė: ${Math.floor(hp)}/${Math.floor(maxHp)}`, barX + 8, barBaseY + 3, 12, "#fff");
+        drawPixelText(`GYVYBĖS: ${Math.floor(hp)}/${Math.floor(maxHp)}`, barX + 8, barBaseY + 5, 12, "#fff");
 
         // Mana bar with pixel style
         drawRect(barX, barBaseY + 24, barWidth, 18, "#222");
@@ -526,7 +518,7 @@ function draw() {
         drawRect(barX, barBaseY + 24, 2, 18, "#000");
         drawRect(barX + barWidth - 2, barBaseY + 24, 2, 18, "#000");
         drawRect(barX, barBaseY + 26, barWidth, 2, "rgba(255,255,255,0.2)");
-        drawPixelText(`MANA: ${Math.floor(mana)}/${Math.floor(maxMana)}`, barX + 8, barBaseY + 27, 12, "#fff");
+        drawPixelText(`MANA: ${Math.floor(mana)}/${Math.floor(maxMana)}`, barX + 8, barBaseY + 28, 12, "#fff");
 
         // XP bar with pixel style
         const xp = playerStats.xp ?? 0;
@@ -538,22 +530,22 @@ function draw() {
         drawRect(barX, barBaseY + 48, 2, 12, "#000");
         drawRect(barX + barWidth - 2, barBaseY + 48, 2, 12, "#000");
         drawRect(barX, barBaseY + 50, barWidth, 2, "rgba(255,255,255,0.2)");
-        drawPixelText(`PATIRTIS: ${xp}`, barX + 8, barBaseY + 49, 10, "#fff");
+        drawPixelText(`PATIRTIS: ${xp}`, barX + 8, barBaseY + 51, 10, "#fff");
 
         // Money display
         const money = playerStats.money ?? playerStats.gold ?? 0;
-        drawPixelText(`PINIGAI: ${money}`, barX + 160, barBaseY + 3, 12, "#ffd700");
+        drawPixelText(`PINIGAI: ${money}`, barX + 160, barBaseY + 4, 12, "#ffd700");
         
         // Level display
         if (playerStats.level) {
-            drawPixelText(`LYGIS: ${playerStats.level}`, barX + 160, barBaseY + 27, 12, "#ffd700");
+            drawPixelText(`LYGIS: ${playerStats.level}`, barX + 160, barBaseY + 28, 12, "#ffd700");
         }
 
         // Skill slots (4 slots below the bars)
         const slotSize = 50;
         const slotGap = 10;
         const totalSlotWidth = (slotSize * 4) + (slotGap * 3);
-        const slotStartX = (canvas.width - totalSlotWidth) / 2;
+        const slotStartX = (canvas.width - totalSlotWidth) / 2 - 40; // Slightly left to make room for ultimate
         const slotY = barBaseY + 70;
         
         // Ultimate skill slot (larger, on the right)
@@ -563,35 +555,7 @@ function draw() {
         const hasUltimate = playerStats.ultimateSkill && ultimateSkills[playerStats.ultimateSkill];
         const isUltimateLocked = !hasUltimate;
         
-        // Active buffs display (above skill slots)
-        const activeBuffs = Object.keys(skillStates.activeBuffs);
-        if (activeBuffs.length > 0) {
-            let buffX = slotStartX;
-            const buffY = slotY - 30;
-            activeBuffs.forEach(buffName => {
-                const buff = skillStates.activeBuffs[buffName];
-                const buffIcons = {
-                    'Battle Cry': '💪',
-                    'Mana Shield': '🔮',
-                    'shield': '🛡️',
-                    'armorBuff': '🛡️'
-                };
-                const icon = buffIcons[buffName] || '✨';
-                const timeLeft = Math.ceil(buff.timer);
-                
-                ctx.font = '16px monospace';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#ffaa00';
-                ctx.fillText(icon, buffX, buffY);
-                
-                ctx.font = '10px monospace';
-                ctx.fillStyle = '#fff';
-                ctx.fillText(timeLeft + 's', buffX, buffY + 12);
-                
-                buffX += 35;
-            });
-        }
+        
         
         const playerSkills = getPlayerSkills();
 
@@ -616,7 +580,7 @@ function draw() {
                 ctx.fillStyle = isOnCooldown ? "#444" : "#fff";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(skill.icon, slotX + slotSize / 2, slotY + slotSize / 2 - 5);
+                ctx.fillText(skill.icon, slotX + slotSize / 2, slotY + slotSize / 2 + 2);
                 
                 // Cooldown overlay
                 if (isOnCooldown) {
@@ -637,11 +601,11 @@ function draw() {
                 ctx.fillStyle = "#3498db";
                 ctx.textAlign = "right";
                 ctx.textBaseline = "bottom";
-                ctx.fillText(`${skill.manaCost}`, slotX + slotSize - 5, slotY + slotSize - 5);
+                ctx.fillText(`${skill.manaCost}`, slotX + slotSize - 2, slotY + slotSize);
             }
             
             // Key number in corner
-            drawPixelText(`${i + 1}`, slotX + 5, slotY + 12, 10, "#888");
+            drawPixelText(`${i + 1}`, slotX + 3, slotY + 3, 10, "#FFF");
         }
         
         // Ultimate skill slot
@@ -657,9 +621,9 @@ function draw() {
             ctx.fillStyle = "#333";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("🔒", ultimateX + ultimateSize / 2, ultimateY + ultimateSize / 2 - 5);
+            ctx.fillText("🔒", ultimateX + ultimateSize / 2, ultimateY + ultimateSize / 2);
             
-            drawPixelText("LYGIS 10", ultimateX + 10, ultimateY + ultimateSize - 10, 8, "#555");
+            drawPixelText("LYGIS 10", ultimateX + 15, ultimateY + ultimateSize - 10, 8, "#FFF");
         } else {
             const ultimate = ultimateSkills[playerStats.ultimateSkill];
             const cooldown = skillStates.ultimateCooldown;
@@ -674,11 +638,11 @@ function draw() {
             drawRect(ultimateX + 2, ultimateY + 2, ultimateSize - 4, ultimateSize - 4, "#2a2a2a");
             
             // Icon
-            ctx.font = "28px monospace";
+            ctx.font = "18px monospace";
             ctx.fillStyle = isOnCooldown ? "#444" : "#ffd700";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(ultimate.icon, ultimateX + ultimateSize / 2, ultimateY + ultimateSize / 2 - 5);
+            ctx.fillText(ultimate.icon, ultimateX + ultimateSize / 2 + 2, ultimateY + ultimateSize / 2);
             
             // Cooldown overlay
             if (isOnCooldown) {
@@ -698,19 +662,10 @@ function draw() {
             ctx.textBaseline = "bottom";
             ctx.fillText(`${ultimate.manaCost}`, ultimateX + ultimateSize - 5, ultimateY + ultimateSize - 5);
 
-            // Ultimate used indicator
-            if (skillStates.ultimateUsedTimer > 0) {
-                const alpha = Math.min(1, skillStates.ultimateUsedTimer / 1.5);
-                ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
-                ctx.font = "bold 16px monospace";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText("ULTIMATAS!", ultimateX + ultimateSize / 2, ultimateY - 14);
-            }
         }
         
         // Key indicator for ultimate
-        drawPixelText("R", ultimateX + 5, ultimateY + 15, 10, "#888");
+        drawPixelText("R", ultimateX + 5, ultimateY + 3, 10, "#FFF");
 
         // Level up animation
         if (levelUpAnimation.active) {
@@ -732,29 +687,29 @@ function draw() {
             if (playerStats.skillPoints) {
                 ctx.fillStyle = `rgba(0, 255, 0, ${alpha})`;
                 ctx.font = "bold 24px monospace";
-                ctx.fillText(`+${playerStats.skillPoints} Įgūdžiai taškai`, canvas.width / 2, canvas.height / 2 - 30);
+                ctx.fillText(`+${playerStats.skillPoints} Įgūdžių taškai`, canvas.width / 2, canvas.height / 2 - 30);
             }
             
             ctx.textAlign = "left";
             ctx.textBaseline = "alphabetic";
         }
 
-        // ✅ Shop
+        // Shop
         drawShopUI(canvas);
 
-        // ✅ Inventorius
+        // Inventory
         drawInventory(canvas);
 
-        // ✅ Skill Tree
+        // Skill Tree
         drawSkillTree(canvas);
         
-        // ✅ Damage flash overlay
+        // Damage flash overlay
         if (damageFlashAlpha > 0) {
             ctx.fillStyle = `rgba(255, 0, 0, ${damageFlashAlpha * 0.3})`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
         
-        // ✅ Death message
+        // Death message
         if (deathMessage && deathMessageAlpha > 0) {
             ctx.save();
             ctx.fillStyle = `rgba(255, 0, 0, ${deathMessageAlpha})`;
@@ -768,24 +723,24 @@ function draw() {
             ctx.restore();
         }
 
-        // ✅ UI
-        drawUI();
+        // Settings UI
+        drawSettingsUI();
     }
 
-    // ✅ Chat window (only in hub)
+    // Chat window (only in hub)
     if (getScene() === "hub") {
         drawChat();
     }
 
-    // ✅ Login / Character Creation / Character Select (drawn last, on top of everything)
+    // Login / Character Creation / Character Select (drawn last, on top of everything)
     drawLoginUI();
     drawCharacterUI();
     drawCharacterSelectUI();
     
-    // ✅ Difficulty selection UI (drawn on top of everything)
+    // Difficulty selection UI (drawn on top of everything)
     drawDifficultyUI();
     
-    // ✅ Class merge UI (drawn on top)
+    // Class merge UI (drawn on top)
     drawClassMergeUI();
 
     endDraw();
@@ -839,7 +794,7 @@ window.addEventListener("mousedown", async (e) => {
                 player.y = dungeon.height / 2;
             }
 
-            initEnemies(); // ✅ spawn priešų with difficulty scaling
+            initEnemies(); // Spawn enemies for the dungeon run with scaling
             
             // Force ensure regen stats are initialized properly
             if (playerStats.healthRegen === undefined || playerStats.healthRegen === null) {

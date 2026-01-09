@@ -10,9 +10,9 @@ export let uiState = {
     settingsOpen: false
 };
 
-export function updateUI(dt) {}
+export function updateSettingsUI(dt) {}
 
-export function drawUI() {
+export function drawSettingsUI() {
     // SETTINGS BUTTON with pixel style
     drawPixelButton(
         canvas.width - 70,

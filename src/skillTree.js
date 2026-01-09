@@ -1,5 +1,5 @@
-import { ctx, drawRect, drawPixelText, drawPixelButton } from "./renderer.js";
-import { playerStats, getPlayerStats } from "./stats.js";
+import { ctx, drawRect, drawPixelText} from "./renderer.js";
+import { playerStats} from "./stats.js";
 import { updateCharacterStats } from "./api.js";
 import { inventory } from "./inventory.js";
 import { playSound } from "./audio.js";
@@ -18,7 +18,7 @@ export const skills = {
     // Strength Branch
     strength1: {
         id: 'strength1',
-        name: 'Jėgos pradžia',
+        name: 'Jėga',
         description: 'Padidina jėgą +2',
         maxLevel: 5,
         currentLevel: 0,
@@ -57,7 +57,7 @@ export const skills = {
     // Agility Branch
     agility1: {
         id: 'agility1',
-        name: 'Vikrumo pradžia',
+        name: 'Vikrumas',
         description: 'Padidina vikrumą +2',
         maxLevel: 5,
         currentLevel: 0,
@@ -82,7 +82,7 @@ export const skills = {
     },
     agility3: {
         id: 'agility3',
-        name: 'Šešėlio šokis',
+        name: 'Šviesos greitis',
         description: 'Padidina vikrumą +5, kritinį šansą +10% ir kritinę žalą +50%',
         maxLevel: 1,
         currentLevel: 0,
@@ -96,7 +96,7 @@ export const skills = {
     // Intelligence Branch
     intelligence1: {
         id: 'intelligence1',
-        name: 'Intelekto pradžia',
+        name: 'Intelektas',
         description: 'Padidina intelektą +2',
         maxLevel: 5,
         currentLevel: 0,
@@ -109,7 +109,7 @@ export const skills = {
     },
     intelligence2: {
         id: 'intelligence2',
-        name: 'Mago protas',
+        name: 'Protas',
         description: 'Padidina intelektą +3 ir maks. maną +30',
         maxLevel: 3,
         currentLevel: 0,
@@ -121,7 +121,7 @@ export const skills = {
     },
     intelligence3: {
         id: 'intelligence3',
-        name: 'Arcimago išmintis',
+        name: 'Išmintis',
         description: 'Padidina intelektą +5, maks. maną +50 ir manos regeneraciją +20%',
         maxLevel: 1,
         currentLevel: 0,
@@ -135,7 +135,7 @@ export const skills = {
     // Defense Branch
     defense1: {
         id: 'defense1',
-        name: 'Apsaugos pradžia',
+        name: 'Apsauga',
         description: 'Padidina šarvus +3',
         maxLevel: 5,
         currentLevel: 0,
@@ -148,7 +148,7 @@ export const skills = {
     },
     defense2: {
         id: 'defense2',
-        name: 'Geležinis oda',
+        name: 'Geležinė oda',
         description: 'Padidina šarvus +5 ir maks. gyvybes +40',
         maxLevel: 3,
         currentLevel: 0,
@@ -371,7 +371,7 @@ export function drawSkillTree(canvas) {
 
     // Skill points display - ensure we get fresh value from playerStats
     const availablePoints = (playerStats && typeof playerStats.skillPoints === 'number') ? playerStats.skillPoints : 0;
-    drawPixelText(`Laisvų taškų: ${availablePoints}`, st.x + st.width / 2 - 70, st.y + 55, 14, "#ffd700");
+    drawPixelText(`Laisvų taškų: ${availablePoints}`, st.x + st.width / 2 - 50, st.y + 80, 14, "#ffd700");
 
     // Draw connection lines between skills
     for (const skillId in skills) {
@@ -379,9 +379,9 @@ export function drawSkillTree(canvas) {
         if (skill.requires) {
             const requiredSkill = skills[skill.requires];
             if (requiredSkill) {
-                const x1 = st.x + requiredSkill.position.x + 30;
+                const x1 = st.x + requiredSkill.position.x + 5;
                 const y1 = st.y + requiredSkill.position.y + 140;
-                const x2 = st.x + skill.position.x + 30;
+                const x2 = st.x + skill.position.x + 5;
                 const y2 = st.y + skill.position.y + 80;
 
                 const color = skill.currentLevel > 0 ? branchColors[skill.branch] : "rgba(100,100,100,0.5)";
@@ -439,7 +439,7 @@ export function drawSkillTree(canvas) {
 }
 
 function drawSkill(skill, st) {
-    const sx = st.x + skill.position.x;
+    const sx = st.x + skill.position.x - 25;
     const sy = st.y + skill.position.y + 80;
     const size = 60;
 
@@ -477,9 +477,9 @@ function drawSkill(skill, st) {
 
     // Skill level indicator
     const levelText = `${skill.currentLevel}/${skill.maxLevel}`;
-    drawPixelText(levelText, sx + size / 2 - 15, sy + size / 2, 14, "#fff");
+    drawPixelText(levelText, sx + size / 2 - 12, sy + size / 2 - 5, 14, "#fff");
 
-    // Hover effect
+    // Hover highlight effect
     if (skillTree.hoveredSkill === skill.id) {
         drawRect(sx, sy, size, size, "rgba(255,255,255,0.2)");
     }
@@ -489,7 +489,7 @@ function drawSkillTooltip(skill, canvas) {
     const mouseX = window.mouseX;
     const mouseY = window.mouseY;
 
-    const width = 300;
+    const width = 600;
     const height = 150;
     let x = mouseX + 15;
     let y = mouseY + 15;
@@ -535,7 +535,7 @@ function drawSkillTooltip(skill, canvas) {
     // Status
     if (skill.currentLevel >= skill.maxLevel) {
         yOffset += 20;
-        drawPixelText("MAKSIMALUS", x + 10, yOffset, 14, "#ffd700");
+        drawPixelText("MAX", x + 10, yOffset, 14, "#ffd700");
     } else if (!canLearnSkill(skill)) {
         yOffset += 20;
         drawPixelText("NEPASIEKIAMA", x + 10, yOffset, 12, "#e74c3c");

@@ -30,9 +30,6 @@ export async function playerAttack() {
         await warriorSlash();
     } else if (playerClass === "tank") {
         tankShieldBash();
-    } else {
-        // Mage doesn't use this (uses fireball on mouse click)
-        await meleeAttack();
     }
 }
 

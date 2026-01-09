@@ -7,14 +7,14 @@ export const camera = {
 };
 
 export function updateCamera(player, world, canvas) {
-    // matomas pasaulio plotas priklauso nuo zoom
+    // Seet camera size based on zoom
     camera.w = canvas.width / camera.zoom;
     camera.h = canvas.height / camera.zoom;
 
     camera.x = player.x - camera.w / 2;
     camera.y = player.y - camera.h / 2;
 
-    // ribojam pagal pasaulio dydį
+    // Limit camera position based on world size
     const maxX = Math.max(0, world.width - camera.w);
     const maxY = Math.max(0, world.height - camera.h);
 

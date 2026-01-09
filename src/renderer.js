@@ -247,11 +247,18 @@ export function drawPixelInput(x, y, width, height, text, isFocused = false) {
 }
 
 export function drawPixelText(text, x, y, size = 14, color = "#fff") {
+    let align = "left";
+    // If align is passed as 5th argument, use it
+    if (typeof color === "string" && arguments.length > 5) {
+        align = arguments[5];
+    }
     ctx.fillStyle = color;
     ctx.font = `${size}px monospace`;
-    ctx.textAlign = "left";
+    ctx.textAlign = align;
     ctx.textBaseline = "top";
     ctx.fillText(text, x, y);
+    return ctx.measureText(text).width;
+    return ctx.measureText(text).width;
 }
 
 // Get spritesheet info based on item slot type

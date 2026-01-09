@@ -378,14 +378,8 @@ export function drawHub() {
             sx, sy, frameWidth, frameHeight,
             hub.portalX - displaySize/2, hub.portalY - displaySize, displaySize, displaySize
         );
-    } else {
-        // Fallback to circles
-        const pulse = Math.sin(hub.portalAnim) * 5;
-        drawCircleStroke(hub.portalX, hub.portalY, hub.portalR + pulse, "#0ff", 4);
-        drawCircleStroke(hub.portalX, hub.portalY, hub.portalR - 10 + pulse, "#0ff", 2);
-        drawCircleStroke(hub.portalX, hub.portalY, hub.portalR - 20 - pulse, "#0ff", 2);
-    }
-    // Draw NPCs
+    } 
+
     hub.npcs.forEach(npc => {
         if (npc.type === 'duck' && duckSprite && duckSprite.complete) {
             // Duck sprite: 5 columns × 2 rows (1280x512, each frame 256x256)
@@ -421,7 +415,6 @@ export function drawHub() {
     // Draw other players AFTER the ground/paths but BEFORE gates
     drawOtherPlayers();
 
-    // Shop sign removed (visual only)
 }
 
 function drawTreeGif(x, y, size = 64) {
@@ -447,46 +440,6 @@ function drawTreeGif(x, y, size = 64) {
         drawRect(x + 15, y + 10, 10, 40, "#5b3a1a");
         drawRect(x + 20, y + 10, 10, 40, "#5b3a1a");
     }
-}
-
-function drawWell(x, y) {
-    drawRect(x, y, 20, 20, "#777");
-    drawCircleFill(x, y, 20, "#777");
-    drawCircleFill(x, y, 12, "#444");
-}
-
-function drawHouse(x, y) {
-    // House base
-    drawRect(x, y + 20, 80, 40, "#d9c7a3");
-    
-    // Roof (triangle made of rectangles)
-    drawRect(x, y, 80, 20, "#8b4513");
-    drawRect(x - 10, y + 10, 20, 20, "#8b4513");
-    drawRect(x + 70, y + 10, 20, 20, "#8b4513");
-    
-    // Door
-    drawRect(x + 30, y + 35, 20, 25, "#654321");
-    
-    // Windows
-    drawRect(x + 10, y + 30, 15, 15, "#87ceeb");
-    drawRect(x + 55, y + 30, 15, 15, "#87ceeb");
-}
-
-function drawTriangle(x, y, width, height, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(x, y + height);
-    ctx.lineTo(x + width / 2, y);
-    ctx.lineTo(x + width, y + height);
-    ctx.closePath();
-    ctx.fill();
-}
-
-function drawCircleFill(x, y, r, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
 }
 
 function drawShopBuilding(x, y) {
@@ -542,40 +495,6 @@ export function isHubWall(x, y, w, h) {
     }
     
     return false;
-}
-
-function drawGates() {
-    // North gate
-    drawRect(hub.width/2 - 40, 0, 80, 20, "#8b4513");
-    drawRect(hub.width/2 - 35, 5, 30, 15, "#654321");
-    drawRect(hub.width/2 + 5, 5, 30, 15, "#654321");
-    drawText("North Gate (E)", hub.width/2 - 50, 35, 12, "#fff");
-    
-    // South gate
-    drawRect(hub.width/2 - 40, hub.height - 20, 80, 20, "#8b4513");
-    drawRect(hub.width/2 - 35, hub.height - 20, 30, 15, "#654321");
-    drawRect(hub.width/2 + 5, hub.height - 20, 30, 15, "#654321");
-    drawText("South Gate (E)", hub.width/2 - 50, hub.height - 45, 12, "#fff");
-    
-    // East gate
-    drawRect(hub.width - 20, hub.height/2 - 40, 20, 80, "#8b4513");
-    drawRect(hub.width - 20, hub.height/2 - 35, 15, 30, "#654321");
-    drawRect(hub.width - 20, hub.height/2 + 5, 15, 30, "#654321");
-    drawText("East Gate (E)", hub.width - 100, hub.height/2 - 5, 12, "#fff");
-    
-    // West gate
-    drawRect(0, hub.height/2 - 40, 20, 80, "#8b4513");
-    drawRect(0, hub.height/2 - 35, 15, 30, "#654321");
-    drawRect(0, hub.height/2 + 5, 15, 30, "#654321");
-    drawText("West Gate (E)", 25, hub.height/2 - 5, 12, "#fff");
-}
-
-function drawCircleStroke(x, y, r, color, width = 1) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.stroke();
 }
 
 // Draw other players in hub

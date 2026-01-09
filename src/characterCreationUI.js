@@ -23,7 +23,7 @@ export const classStats = {
     tank:    { health:200, mana:40, strength:6, agility:3, intelligence:3 }
 };
 
-export function updateCharacterUI(dt) {
+export function updateCharacterUIBackground(dt) {
     if (!characterUI.active) return;
     
     // Update background animation (8 frames total: 5 columns x 2 rows, last 2 empty)
@@ -80,7 +80,7 @@ export function drawCharacterUI() {
     }
 
     // Title
-    drawPixelText("SUKURTI CHARAKTERĮ", canvas.width/2 - 140, 120, 24, "#fff");
+    drawPixelText("SUKURTI CHARAKTERĮ", canvas.width/2 - 120, 120, 24, "#fff");
 
     // Name input
     drawPixelText("Vardas:", canvas.width/2 - 150, 200, 16, "#fff");
@@ -88,31 +88,34 @@ export function drawCharacterUI() {
 
     // Class selection
     const classes = ["warrior", "mage", "tank"];
-    const classNamesLT = { warrior: "Karžygys", mage: "Magas", tank: "Tvirtasis" };
+    const classNamesLT = { warrior: "Karžygys", mage: "Magas", tank: "Tankas" };
     let y = 300;
 
     classes.forEach(cls => {
         const isSelected = characterUI.selectedClass === cls;
-        drawPixelButton(
-            canvas.width/2 - 150,
-            y - 25,
-            200,
-            35,
-            classNamesLT[cls],
-            isSelected ? "#2ecc71" : "#34495e",
+        drawPixelButton(canvas.width/2 - 150, y - 25, 200,35, classNamesLT[cls], isSelected ? "#2ecc71" : "#34495e",
             isSelected ? "#27ae60" : "#2c3e50"
         );
         y += 40;
     });
 
+    // Stats display background and outline
+    const statsX = canvas.width/2 + 90;
+    const statsY = 280;
+    const statsW = 170;
+    const statsH = 110;
+    ctx.fillStyle = "rgba(0,0,0,0.85)";
+    ctx.fillRect(statsX, statsY, statsW, statsH);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(statsX, statsY, statsW, statsH);
     // Stats display
     const s = classStats[characterUI.selectedClass];
-    drawPixelText(`Gyvybės: ${s.health}`, canvas.width/2 + 50, 300, 14, "#e74c3c");
-    drawPixelText(`Mana: ${s.mana}`, canvas.width/2 + 50, 320, 14, "#3498db");
-    drawPixelText(`Jėga: ${s.strength}`, canvas.width/2 + 50, 340, 14, "#f39c12");
-    drawPixelText(`Vikrumas: ${s.agility}`, canvas.width/2 + 50, 360, 14, "#9b59b6");
-    drawPixelText(`Intelektas: ${s.intelligence}`, canvas.width/2 + 50, 380, 14, "#1abc9c");
-
+    drawPixelText(`Gyvybės: ${s.health}`, statsX + 10, statsY + 10, 14, "#e74c3c");
+    drawPixelText(`Mana: ${s.mana}`, statsX + 10, statsY + 30, 14, "#3498db");
+    drawPixelText(`Jėga: ${s.strength}`, statsX + 10, statsY + 50, 14, "#f39c12");
+    drawPixelText(`Vikrumas: ${s.agility}`, statsX + 10, statsY + 70, 14, "#9b59b6");
+    drawPixelText(`Intelektas: ${s.intelligence}`, statsX + 10, statsY + 90, 14, "#1abc9c");
     // Create button
     drawPixelButton(
         canvas.width/2 - 150,
@@ -156,8 +159,8 @@ window.addEventListener("mousedown", async (e) => {
         my > 520 && my < 570) {
         playSound("button");
 
-        if (characterUI.name.trim().length < 2) {
-            alert("Įveskite vardą");
+        if (characterUI.name.trim().length < 3) {
+            alert("Vardo ilgis turi būti bent 3 simboliai");
             return;
         }
 
@@ -168,8 +171,9 @@ window.addEventListener("mousedown", async (e) => {
 
 
         if (!res.success) {
-            if (res.error && res.error.includes("10")) {
-                alert("Palaukite 10s prieš bandydami sukurti naują charakterį");
+            // Handle HTTP 429 (Too Many Requests) or error text with '3'
+            if ((res.status === 429) || (res.error && res.error.includes("3"))) {
+                alert("Palaukite 3s prieš bandydami sukurti naują charakterį");
             } else if (res.error && res.error.includes("limit")) {
                 alert("Charakterių limitas pasiektas 4/4");
             } else {

@@ -47,8 +47,6 @@ export function initInventory() {
     console.log("playerStats:", playerStats);
 }
 
-
-
 export function updateInventory(canvas) {
     // Toggle inventoriaus
     if (keys["i"] && !inventory._lock) {
@@ -101,21 +99,21 @@ export function updateInventory(canvas) {
     }
 
     // DRAG START FROM EQUIPMENT
-if (window.mouseDown && inv.dragging === null) {
-    const eqSlot = getHoveredEquipSlot(mx, my, inv);
-    if (eqSlot && equipment[eqSlot]) {
-        inv.dragging = equipment[eqSlot];
-        inv.dragIndex = -1; // special flag: from equipment
-        inv.dragFromEquipSlot = eqSlot;
-        equipment[eqSlot] = null;
-        
-        // Play item interact sound
-        playSound("itemInteract");
+    if (window.mouseDown && inv.dragging === null) {
+        const eqSlot = getHoveredEquipSlot(mx, my, inv);
+        if (eqSlot && equipment[eqSlot]) {
+            inv.dragging = equipment[eqSlot];
+            inv.dragIndex = -1; // special flag: from equipment
+            inv.dragFromEquipSlot = eqSlot;
+            equipment[eqSlot] = null;
+            
+            // Play item interact sound
+            playSound("itemInteract");
 
-        inv.dragOffsetX = mx;
-        inv.dragOffsetY = my;
+            inv.dragOffsetX = mx;
+            inv.dragOffsetY = my;
+        }
     }
-}
 
     // DRAG END
     if (!window.mouseDown && inv.dragging) {
@@ -127,20 +125,41 @@ if (window.mouseDown && inv.dragging === null) {
         inv.slots[inv.hoveredSlot] = inv.dragging;
         // if was dragged from equipment, tell server to unequip
         if (inv.dragFromEquipSlot) {
+            // Užkraunam value iš duomenų bazės
+            if (inv.slots[inv.hoveredSlot]) {
+                (async () => {
+                    const api = await import("./api.js");
+                    try {
+                        const dbItem = await api.getItem(inv.slots[inv.hoveredSlot].id);
+                        if (dbItem && typeof dbItem.value === "number") {
+                            inv.slots[inv.hoveredSlot].value = dbItem.value;
+                        }
+                    } catch (e) {}
+                })();
+            }
             unequipAndRefresh(getPlayerStats().id, inv.dragFromEquipSlot);
+            // Papildomai: išsaugoti inventorių į serverį
+            (async () => {
+                const api = await import("./api.js");
+                const updatedInventory = inv.slots.map(slot => {
+                    if (!slot || !slot.id || slot.id <= 0) return null;
+                    return { itemId: slot.id, qty: slot.quantity || 1 };
+                }).filter(Boolean);
+                await api.updateCharacterInventory(getPlayerStats().id, updatedInventory);
+            })();
         }
         inv.dragging = null;
         inv.dragFromEquipSlot = null;
         return;
     }
 
-    // jei slotas užimtas → swap
+    // If slot occupied swap items
     const temp = inv.slots[inv.hoveredSlot];
     inv.slots[inv.hoveredSlot] = inv.dragging;
 
-    // jei itemas buvo iš equipment
+    // If dragged from equipment, temp goes to inventory
     if (inv.dragIndex === -1) {
-        // dragged from equipment -> we moved it to inventory, ensure server unequips
+        // dragged from equipment we moved it to inventory, ensure server unequips
         if (inv.dragFromEquipSlot) {
             unequipAndRefresh(getPlayerStats().id, inv.dragFromEquipSlot);
             inv.dragFromEquipSlot = null;
@@ -156,73 +175,85 @@ if (window.mouseDown && inv.dragging === null) {
         // DROP ON EQUIPMENT
         const eqSlot = getHoveredEquipSlot(mx, my, inv);
         if (eqSlot) {
-    const requiredType = equipmentSlotTypes[eqSlot];
-    const itemType = inv.dragging.type;
+            const requiredType = equipmentSlotTypes[eqSlot];
+            const itemType = inv.dragging.type;
 
-    if (itemType !== requiredType) {
-        // netinka → grąžinam
-        if (inv.dragIndex !== -1) inv.slots[inv.dragIndex] = inv.dragging;
-        inv.dragging = null;
-        return;
-    }
-
-    // jei equipment slotas tuščias
-    if (!equipment[eqSlot]) {
-        equipment[eqSlot] = inv.dragging;
-        // persist equip
-        equipAndRefresh(getPlayerStats().id, eqSlot, inv.dragging.id);
-        inv.dragging = null;
-        inv.dragFromEquipSlot = null;
-        return;
-    }
-
-    // jei equipment slotas užimtas → swap
-    const temp = equipment[eqSlot];
-    equipment[eqSlot] = inv.dragging;
-
-    if (inv.dragIndex === -1) {
-        // dragged from equipment -> temp goes to inventory
-        const free = inv.slots.indexOf(null);
-        if (free !== -1) {
-            inv.slots[free] = temp;
-            // we moved an item from one equip slot to another: update server
-            // set target to new item and previous slot to null
-            if (inv.dragFromEquipSlot) {
-                equipAndRefresh(getPlayerStats().id, eqSlot, inv.dragging.id);
-                unequipAndRefresh(getPlayerStats().id, inv.dragFromEquipSlot);
-                inv.dragFromEquipSlot = null;
+            if (itemType !== requiredType) {
+                // netinka → grąžinam
+                if (inv.dragIndex !== -1) inv.slots[inv.dragIndex] = inv.dragging;
+                inv.dragging = null;
+                return;
             }
-        } else {
-            // inventory full -> revert
-            equipment[eqSlot] = temp;
+
+            // if equipment slot empty equip
+            if (!equipment[eqSlot]) {
+                equipment[eqSlot] = inv.dragging;
+                // Remove from inventory if dragged from there
+                if (inv.dragIndex !== -1) {
+                    inv.slots[inv.dragIndex] = null;
+                    // Save inventory on server
+                    (async () => {
+                        const api = await import("./api.js");
+                        const updatedInventory = inv.slots.map(slot => {
+                            if (!slot || !slot.id || slot.id <= 0) return null;
+                            return { itemId: slot.id, qty: slot.quantity || 1 };
+                        }).filter(Boolean);
+                        await api.updateCharacterInventory(getPlayerStats().id, updatedInventory);
+                    })();
+                }
+                // Save equip on server
+                equipAndRefresh(getPlayerStats().id, eqSlot, inv.dragging.id);
+                inv.dragging = null;
+                inv.dragFromEquipSlot = null;
+                return;
+            }
+
+            // if equipment slot occupied swap
+            const temp = equipment[eqSlot];
+            equipment[eqSlot] = inv.dragging;
+
+            if (inv.dragIndex === -1) {
+                // dragged from equipment -> temp goes to inventory
+                const free = inv.slots.indexOf(null);
+                if (free !== -1) {
+                    inv.slots[free] = temp;
+                    // we moved an item from one equip slot to another: update server
+                    // set target to new item and previous slot to null
+                    if (inv.dragFromEquipSlot) {
+                        equipAndRefresh(getPlayerStats().id, eqSlot, inv.dragging.id);
+                        unequipAndRefresh(getPlayerStats().id, inv.dragFromEquipSlot);
+                        inv.dragFromEquipSlot = null;
+                    }
+                } else {
+                    // inventory full revert
+                    equipment[eqSlot] = temp;
+                }
+            } else {
+                // item was from inventory temp goes back to inventory
+                inv.slots[inv.dragIndex] = temp;
+                // persist equip for this slot
+                equipAndRefresh(getPlayerStats().id, eqSlot, inv.dragging.id);
+            }
+
+            inv.dragging = null;
+            return;
         }
-    } else {
-        // item was from inventory → temp goes back to inventory
-        inv.slots[inv.dragIndex] = temp;
-        // persist equip for this slot
-        equipAndRefresh(getPlayerStats().id, eqSlot, inv.dragging.id);
-    }
+
+        // DROP ANYWHERE ELSE return to original place
+        if (inv.dragIndex !== -1) {
+            // item was from inventory
+            inv.slots[inv.dragIndex] = inv.dragging;
+        } else {
+            // item was from equipment → return to original equipment slot
+            const originalSlot = inv.dragFromEquipSlot || findEquipmentSlotByType(inv.dragging.type);
+            equipment[originalSlot] = inv.dragging;
+            // if it was a drag-from-equip and we returned, clear tracking
+            inv.dragFromEquipSlot = null;
+        }
 
         inv.dragging = null;
-        return;
     }
-
-        // DROP ANYWHERE ELSE → return to original place
-if (inv.dragIndex !== -1) {
-    // item was from inventory
-    inv.slots[inv.dragIndex] = inv.dragging;
-} else {
-    // item was from equipment → return to original equipment slot
-    const originalSlot = inv.dragFromEquipSlot || findEquipmentSlotByType(inv.dragging.type);
-    equipment[originalSlot] = inv.dragging;
-    // if it was a drag-from-equip and we returned, clear tracking
-    inv.dragFromEquipSlot = null;
 }
-
-        inv.dragging = null;
-}
-}
-
 
 function findEquipmentSlotByType(type) {
     for (const key in equipmentSlotTypes) {
@@ -643,8 +674,8 @@ export async function loadInventoryFromDB() {
             name: items[i].name,
             icon: items[i].icon ?? 0,
             rarity: items[i].rarity ?? "common",
-            // ensure cost is preserved so sell price can be calculated
             cost: items[i].price ?? items[i].cost ?? items[i].value ?? 0,
+            value: items[i].value ?? 0,
             type: items[i].slot ?? items[i].type ?? "misc",
             slot: items[i].slot ?? null,
             quantity: items[i].quantity ?? 1,
@@ -655,7 +686,7 @@ export async function loadInventoryFromDB() {
             bonus_intelligence: items[i].bonus_intelligence,
             bonus_armor: items[i].bonus_armor,
             bonus_damage: items[i].bonus_damage
-                    };
+        };
     }
     // load equipment and refresh stats
     await loadEquipmentFromDB();
@@ -709,8 +740,47 @@ async function equipAndRefresh(charId, slot, itemId) {
 
 async function unequipAndRefresh(charId, slot) {
     try {
+        // Remove from equipment in DB
         await unequipItem(charId, slot);
+        // Add item to inventory locally
+        const item = equipment[slot];
+        if (item && item.id) {
+            // Gauti value iš duomenų bazės
+            const api = await import("./api.js");
+            let dbItem = null;
+            try {
+                dbItem = await api.getItem(item.id);
+            } catch (e) {
+                dbItem = null;
+            }
+            if (dbItem && typeof dbItem.value === "number") {
+                item.value = dbItem.value;
+            }
+            // Find first empty slot
+            const emptySlot = inventory.slots.findIndex(s => !s);
+            if (emptySlot !== -1) {
+                inventory.slots[emptySlot] = item;
+                // Update inventory in DB
+                const updatedInventory = inventory.slots.map(slot => {
+                    if (!slot || !slot.id || slot.id <= 0) return null;
+                    return { itemId: slot.id, qty: slot.quantity || 1 };
+                }).filter(Boolean);
+                await api.updateCharacterInventory(charId, updatedInventory);
+            } else {
+                // Inventory full: return item to equipment slot and show error
+                equipment[slot] = item;
+                if (window.showInventoryFullError) {
+                    window.showInventoryFullError();
+                } else {
+                    alert("Inventorius pilnas! Nuimamas daiktas nebuvo pridėtas.");
+                }
+            }
+        }
         await loadPlayerStats(charId);
+        // Reload inventory from DB to sync
+        if (window.loadInventoryFromDB) {
+            await window.loadInventoryFromDB();
+        }
     } catch (e) {
         // ignore
     }

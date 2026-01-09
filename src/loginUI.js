@@ -4,24 +4,31 @@ import { characterUI } from "./characterCreationUI.js";
 import { openCharacterSelect } from "./characterSelectUI.js";
 import { unlockAudio, playSound } from "./audio.js";
 
+// Jei varnėlė nežymėta, iškart išvalome rememberedUsername
+let remembered = localStorage.getItem("rememberedUsername");
+if (!remembered) {
+    localStorage.removeItem("rememberedUsername");
+}
+
 export let loginUI = {
     active: true,
     mode: "login",
-    username: "",
+    username: remembered || "",
     password: "",
     repeatPassword: "",
     focus: "username",
     message: "",
     bgAnimFrame: 0,
     bgAnimTimer: 0,
-    bgAnimSpeed: 0.08
+    bgAnimSpeed: 0.08,
+    remember: remembered ? true : false
 };
 
 // Klaviatūra
 window.addEventListener("keydown", (e) => {
     if (!loginUI.active) return;
-    if (characterUI.active) return; // nesikišam, kai atidarytas character creation
-    // charSelectUI ignoruojam, nes jis turi savo inputą (tik pelė)
+    if (characterUI.active) return;
+    
 
     if (e.key === "Tab") {
         if (loginUI.mode === "login") {
@@ -35,8 +42,12 @@ window.addEventListener("keydown", (e) => {
         return;
     }
 
+
     if (e.key === "Backspace") {
-        if (loginUI.focus === "username") loginUI.username = loginUI.username.slice(0, -1);
+        if (loginUI.focus === "username") {
+            loginUI.username = loginUI.username.slice(0, -1);
+            localStorage.setItem("rememberedUsername", loginUI.username);
+        }
         else if (loginUI.focus === "password") loginUI.password = loginUI.password.slice(0, -1);
         else if (loginUI.focus === "repeat") loginUI.repeatPassword = loginUI.repeatPassword.slice(0, -1);
         return;
@@ -49,7 +60,10 @@ window.addEventListener("keydown", (e) => {
     }
 
     if (e.key.length === 1) {
-        if (loginUI.focus === "username") loginUI.username += e.key;
+        if (loginUI.focus === "username") {
+            loginUI.username += e.key;
+            localStorage.setItem("rememberedUsername", loginUI.username);
+        }
         else if (loginUI.focus === "password") loginUI.password += e.key;
         else if (loginUI.focus === "repeat") loginUI.repeatPassword += e.key;
     }
@@ -66,6 +80,7 @@ window.addEventListener("mousedown", (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+
 
     // Username field (Y: 300, height: 40)
     if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
@@ -87,21 +102,29 @@ window.addEventListener("mousedown", (e) => {
         }
     }
 
+    if (loginUI.mode === "login" &&
+        mx > canvas.width/2 - 150 && mx < canvas.width/2 - 120 &&
+        my > 450 && my < 480) {
+        loginUI.remember = !loginUI.remember;
+        if (!loginUI.remember) localStorage.removeItem("rememberedUsername");
+        else localStorage.setItem("rememberedUsername", loginUI.username);
+    }
+
     // LOGIN MODE BUTTONS
     if (loginUI.mode === "login") {
-        // Login button (Y: 470, height: 50)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 470 && my < 520) {
+            my > 500 && my < 550) {
             playSound("button");
             doLogin();
         }
 
-        // Switch to register (Y: 530, height: 40)
+        // Switch to register (Y: 560, height: 40)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 530 && my < 570) {
+            my > 560 && my < 600) {
             playSound("button");
             loginUI.mode = "register";
             loginUI.username = "";
+            if (loginUI.remember) localStorage.setItem("rememberedUsername", "");
             loginUI.password = "";
             loginUI.repeatPassword = "";
             loginUI.message = "";
@@ -110,19 +133,29 @@ window.addEventListener("mousedown", (e) => {
 
     // REGISTER MODE BUTTONS
     if (loginUI.mode === "register") {
-        // Register button (Y: 550, height: 50)
+        // Register button (Y: 580, height: 50)
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 550 && my < 600) {
+            my > 580 && my < 630) {
             playSound("button");
             doRegister();
         }
 
-        // Back to login (Y: 610, height: 40)
+        // Back to login
         if (mx > canvas.width/2 - 150 && mx < canvas.width/2 + 150 &&
-            my > 610 && my < 650) {
+            my > 640 && my < 680) {
             playSound("button");
             loginUI.mode = "login";
             loginUI.message = "";
+            if (!loginUI.remember) {
+                loginUI.username = "";
+                loginUI.password = "";
+                loginUI.repeatPassword = "";
+                loginUI.focus = "username";
+                localStorage.removeItem("rememberedUsername");
+            } else {
+                // Jei varnėlė pažymėta, bet localStorage tuščias, atnaujinti
+                localStorage.setItem("rememberedUsername", loginUI.username);
+            }
         }
     }
 });
@@ -189,6 +222,17 @@ export function updateLoginUI(dt) {
 
 // PIEŠIMAS
 export function drawLoginUI() {
+    // Jei loginUI tapo aktyvus ir varnėlė nepažymėta, išvalyti laukus ir localStorage
+    if (loginUI.active && !loginUI._wasActive) {
+        if (!loginUI.remember) {
+            loginUI.username = "";
+            loginUI.password = "";
+            loginUI.repeatPassword = "";
+            loginUI.focus = "username";
+            localStorage.removeItem("rememberedUsername");
+        }
+    }
+    loginUI._wasActive = loginUI.active;
     if (!loginUI.active) return;
 
     // Animated background
@@ -243,6 +287,7 @@ export function drawLoginUI() {
     // Game tagline with keywords
     drawPixelText("Dungeon Crawler - 2D Pixel RPG • Browser RPG • Bullet Hell", canvas.width / 2 - 170, 200, 12, "#ffd700");
 
+
     // Username label and input
     drawPixelText("Vartotojas:", canvas.width / 2 - 150, 280, 16, "#fff");
     drawPixelInput(
@@ -265,6 +310,30 @@ export function drawLoginUI() {
         loginUI.focus === "password"
     );
 
+    // Remember me checkbox
+        if (loginUI.mode === "login") {
+            ctx.globalAlpha = 1.0; // užtikrinam nepermatomumą
+            ctx.fillStyle = "#fff";
+            ctx.font = "14px monospace";
+            ctx.fillText("Įsiminti mane", canvas.width/2 - 100, 470);
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(canvas.width/2 - 150, 450, 30, 30);
+            ctx.lineWidth = 1;
+            if (loginUI.remember) {
+                ctx.globalAlpha = 1.0; // dar kartą užtikrinam nepermatomumą
+                ctx.beginPath();
+                ctx.moveTo(canvas.width/2 - 145, 470);
+                ctx.lineTo(canvas.width/2 - 135, 475);
+                ctx.lineTo(canvas.width/2 - 125, 455);
+                ctx.strokeStyle = "#2ecc71";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.strokeStyle = "#fff"; // grąžinam pradinę spalvą
+                ctx.lineWidth = 1;
+            }
+        }
+
     // Repeat password (only in register mode)
     if (loginUI.mode === "register") {
         drawPixelText("Pakartokite:", canvas.width / 2 - 150, 460, 16, "#fff");
@@ -278,10 +347,11 @@ export function drawLoginUI() {
         );
     }
 
+
     // Main action button
     drawPixelButton(
         canvas.width / 2 - 150,
-        loginUI.mode === "login" ? 470 : 550,
+        loginUI.mode === "login" ? 500 : 580,
         300,
         50,
         loginUI.mode === "login" ? "PRISIJUNGTI" : "SUKURTI PASKYRĄ",
@@ -289,10 +359,10 @@ export function drawLoginUI() {
         "#27ae60"
     );
 
-    // Secondary button
+    // Secondary button 
     drawPixelButton(
         canvas.width / 2 - 150,
-        loginUI.mode === "login" ? 530 : 610,
+        loginUI.mode === "login" ? 560 : 640,
         300,
         40,
         loginUI.mode === "login" ? "SUKURTI PASKYRĄ" : "ATGAL Į PRISIJUNGIMĄ",
@@ -300,14 +370,8 @@ export function drawLoginUI() {
         "#2c3e50"
     );
 
-    // Error message
+    // Error message (po mygtukais)
     if (loginUI.message) {
-        drawPixelText(
-            loginUI.message,
-            canvas.width / 2 - 150,
-            loginUI.mode === "login" ? 590 : 670,
-            14,
-            "#e74c3c"
-        );
+        drawPixelText(loginUI.message, canvas.width / 2 - 150, loginUI.mode === "login" ? 610 : 690, 14, "#e74c3c");
     }
 }

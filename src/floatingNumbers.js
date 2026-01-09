@@ -51,8 +51,7 @@ export function drawFloatingNumbers(cameraTransform = null) {
         let x = num.x;
         let y = num.y;
         
-        // Apply camera transform if provided (for screen-space coordinates)
-        // If null, we're already in world coordinate system
+        // Apply camera transform
         if (cameraTransform) {
             const transformed = cameraTransform(num.x, num.y);
             x = transformed.x;

@@ -8,7 +8,7 @@ export let levelUpAnimation = { active: false, timer: 0 };
 export let skillPoints = 0;
 
 export function getPlayerStats() {
-    return playerStats; // ✅ grąžina dabartinę būseną
+    return playerStats;
 }
 
 export async function loadPlayerStats(charId) {
@@ -20,10 +20,8 @@ export async function loadPlayerStats(charId) {
     const currentXpToNext = playerStats.xpToNext || 100;
     const currentSkillPoints = playerStats.skillPoints || 0;
     const currentMoney = playerStats.money || 0;
-    const currentMaxHealth = playerStats.maxHealth;
-    const currentMaxMana = playerStats.maxMana;
-    const currentHealth = playerStats.health; // Preserve current health
-    const currentMana = playerStats.mana; // Preserve current mana
+    const currentHealth = playerStats.health;
+    const currentMana = playerStats.mana;
     
     // Update playerStats with fresh data from server
     playerStats = newStats;
@@ -42,19 +40,12 @@ export async function loadPlayerStats(charId) {
     if (!playerStats.xpToNext) playerStats.xpToNext = 100; // First level requires 100 XP
     if (!playerStats.maxHealth) playerStats.maxHealth = 100;
     
-    // Preserve current health/mana instead of resetting to max
-    if (currentHealth !== undefined && currentHealth !== null) {
-        playerStats.health = Math.min(currentHealth, playerStats.maxHealth); // Cap at new max if it changed
-    } else if (!playerStats.health) {
-        playerStats.health = playerStats.maxHealth; // Only reset if no previous value
-    }
+    // Always reset health to maxHealth when switching character
+    playerStats.health = playerStats.maxHealth;
     
     if (!playerStats.maxMana) playerStats.maxMana = 50;
-    if (currentMana !== undefined && currentMana !== null) {
-        playerStats.mana = Math.min(currentMana, playerStats.maxMana); // Cap at new max if it changed
-    } else if (!playerStats.mana) {
-        playerStats.mana = playerStats.maxMana; // Only reset if no previous value
-    }
+    // Always reset mana to maxMana when switching character
+    playerStats.mana = playerStats.maxMana;
     
     if (!playerStats.critChance) playerStats.critChance = 0.05; // 5% base crit chance
     if (!playerStats.critDamage) playerStats.critDamage = 1.5; // 150% base crit damage
@@ -67,8 +58,51 @@ export async function loadPlayerStats(charId) {
     
     // Reset skill cooldowns and buffs for the new character
     resetSkillStates();
-    
+
+    // Check for merge/ultimate unlock on load
+    if (
+        playerStats.level >= 10 &&
+        (!playerStats.mergedClass || !playerStats.ultimateSkill)
+    ) {
+        setTimeout(() => {
+            if (typeof openClassMergeUI === "function") openClassMergeUI();
+        }, 500);
+    }
+
     console.log("Player stats loaded:", playerStats);
+        // Sumuojame abiejų žiedų bonusus
+        try {
+            // Importuojame equipment iš inventory.js
+            // Jei import neveikia, galima naudoti window.equipment arba globalų
+            let equipmentObj = null;
+            if (typeof window !== 'undefined' && window.equipment) {
+                equipmentObj = window.equipment;
+            } else {
+                try {
+                    // Dynamic import jei reikia
+                    equipmentObj = (await import('./inventory.js')).equipment;
+                } catch (e) {
+                    equipmentObj = null;
+                }
+            }
+            if (equipmentObj) {
+                const rings = [equipmentObj.ring1, equipmentObj.ring2];
+                // Sumuojame bonusus iš abiejų žiedų
+                for (const ring of rings) {
+                    if (ring) {
+                        playerStats.maxHealth = (playerStats.maxHealth || 0) + (ring.bonus_health || 0);
+                        playerStats.maxMana = (playerStats.maxMana || 0) + (ring.bonus_mana || 0);
+                        playerStats.strength = (playerStats.strength || 0) + (ring.bonus_strength || 0);
+                        playerStats.agility = (playerStats.agility || 0) + (ring.bonus_agility || 0);
+                        playerStats.intelligence = (playerStats.intelligence || 0) + (ring.bonus_intelligence || 0);
+                        playerStats.armor = (playerStats.armor || 0) + (ring.bonus_armor || 0);
+                        playerStats.damage = (playerStats.damage || 0) + (ring.bonus_damage || 0);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Nepavyko sumuoti žiedų bonusų:', e);
+        }
 }
 
 export function updatePlayerStats(dt) {
@@ -94,7 +128,7 @@ export function updatePlayerStats(dt) {
         // Convert to proper decimal: if value > 1, divide by 100
         let actualHealthRegen = playerStats.healthRegen;
         if (actualHealthRegen > 1) {
-            actualHealthRegen = actualHealthRegen / 100; // Convert 150 to 1.5, or 1.5 to 0.015
+            actualHealthRegen = actualHealthRegen / 100;
         }
         
         // Cap health regen at 0.5% (0.005) to prevent overpowered regeneration
@@ -112,7 +146,7 @@ export function updatePlayerStats(dt) {
             actualManaRegen = actualManaRegen / 100;
         }
         
-        // Cap mana regen at 2% (0.02) - mana regen can be a bit faster
+        // Cap mana regen at 2% (0.02)
         const cappedManaRegen = Math.min(actualManaRegen, 0.02);
         const manaRegenAmount = playerStats.maxMana * cappedManaRegen * dt;
         playerStats.mana = Math.min(playerStats.mana + manaRegenAmount, playerStats.maxMana);
@@ -169,7 +203,6 @@ function levelUp() {
     // Play level up sound
     playSound("levelUp");
     
-    console.log(`LEVEL UP! You are now level ${playerStats.level}! +2 skill points`);
     
     // Check for level 10 ultimate unlock
     if (playerStats.level === 10 && !playerStats.ultimateSkill) {

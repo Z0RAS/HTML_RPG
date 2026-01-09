@@ -196,6 +196,21 @@ const characterCreateTimestamps = new Map();
 
 
 // ===== PROTECTED ENDPOINTS =====
+// Update inventory JSON
+app.put("/inventory/updateInventory", authenticateToken, async (req, res) => {
+    const { charId, inventory } = req.body;
+    // Verify ownership
+    const isOwner = await verifyCharacterOwnership(charId, req.user.userId);
+    if (!isOwner) {
+        return res.status(403).json({ success: false, error: "Unauthorized" });
+    }
+    try {
+        await storage.initCharacterInventory(charId, inventory);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ success: false, error: "Database error" });
+    }
+});
 app.post("/createCharacter", authenticateToken, async (req, res) => {
 
     const { name, className } = req.body;
@@ -309,9 +324,9 @@ app.post("/createCharacter", authenticateToken, async (req, res) => {
 
         for (const it of itemsToGive) {
             try {
-                const row = await dbGetAsync("SELECT slot FROM items WHERE id = ?", [it.itemId]);
-                if (!row || !row.slot) continue;
-                const itemSlot = row.slot;
+                const itemRow = await dbGetAsync("SELECT * FROM items WHERE id = ?", [it.itemId]);
+                if (!itemRow || !itemRow.slot) continue;
+                const itemSlot = itemRow.slot;
                 const map = {
                     head: 'head',
                     weapon: 'weapon',
@@ -321,6 +336,10 @@ app.post("/createCharacter", authenticateToken, async (req, res) => {
                     ring: 'ring1'
                 };
                 const slotName = map[itemSlot] || 'armor';
+                // Set value field from price for correct sell value
+                if (itemRow.price !== undefined) {
+                    itemRow.value = itemRow.price;
+                }
                 await storage.setEquipment(charId, slotName, it.itemId);
             } catch (e) {
                 // ignore per-item errors
@@ -398,7 +417,13 @@ app.get("/equipment/:charId", authenticateToken, async (req, res) => {
         const rows = await dbAllAsync(`SELECT * FROM items WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
         for (const slotName in map) {
             const itemId = map[slotName];
-            const item = rows.find(r => r.id === itemId) || null;
+            let item = rows.find(r => r.id === itemId) || null;
+            // Always set value from price if missing or zero
+            if (item) {
+                if ((item.value === undefined || item.value === 0) && item.price !== undefined) {
+                    item.value = item.price;
+                }
+            }
             slots.push(Object.assign({ slot: slotName }, item));
         }
         res.json(slots);
@@ -458,7 +483,12 @@ app.get("/inventory/:charId", authenticateToken, async (req, res) => {
         const rows = await dbAllAsync(`SELECT * FROM items WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
         const out = entries.map(en => {
             const item = rows.find(r => r.id === en.itemId) || {};
-            return Object.assign({}, item, { quantity: en.quantity });
+            // Užtikrinam, kad value būtų užpildytas iš lentelės
+            let value = item.value;
+            if (value === undefined || value === null || value === 0) {
+                value = item.price ?? item.cost ?? 0;
+            }
+            return Object.assign({}, item, { quantity: en.quantity, value });
         });
         res.json(out);
     } catch (e) {

@@ -48,7 +48,7 @@ export async function addInventoryItem(charId, itemId, quantity = 1) {
 }
 
 export async function initCharacterInventory(charId, items) {
-    const arr = (items || []).map(it => ({ itemId: it.itemId, quantity: it.qty || 1 }));
+    const arr = (items || []).map(it => ({ itemId: it.itemId, quantity: it.qty || it.quantity || 1 }));
     await dbRun("UPDATE characters SET inventory_json = ? WHERE id = ?", [JSON.stringify(arr), charId]);
 }
 

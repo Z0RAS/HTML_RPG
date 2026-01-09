@@ -112,7 +112,7 @@ INSERT OR IGNORE INTO items (name, slot, rarity, icon, price, value, bonus_healt
 ('Eskalibur',             'weapon','legendary',25, 800, 50, 50, 0, 12, 4, 0, 0, 30),
 
 -- Rings
-('Vario žiedas',          'ring','common',     26, 5, 0, 0, 0, 0, 0, 0, 0, 0),
+('Vario žiedas',          'ring','common',     26, 5, 1, 0, 0, 0, 0, 0, 0, 0),
 ('Sidabrinis žiedas',     'ring','uncommon',   27, 15, 5, 0, 1, 0, 0, 0, 1, 0),
 ('Galios žiedas',         'ring','rare',       28, 40, 10, 0, 3, 1, 0, 0, 4, 0),
 ('Valdymo žiedas',        'ring','epic',       29, 100, 20, 20, 0, 0, 4, 0, 2, 0),
